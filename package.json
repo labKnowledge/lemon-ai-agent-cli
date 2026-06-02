@@ -1,0 +1,31 @@
+{
+  "name": "lemon-ai-agent-cli",
+  "version": "0.1.0",
+  "description": "CLI agent powered by lemon-ai-agent and Google Gemini",
+  "type": "module",
+  "bin": {
+    "lemon": "./dist/bin/lemon.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx bin/lemon.ts",
+    "start": "node dist/bin/lemon.js",
+    "lemon": "tsx bin/lemon.ts"
+  },
+  "engines": {
+    "node": ">=20.15.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "fast-glob": "^3.3.3",
+    "lemon-ai-agent": "^1.3.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}
