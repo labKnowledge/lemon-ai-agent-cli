@@ -10,6 +10,7 @@ export interface CliConfig {
   approval: ApprovalMode;
   sessionId: string;
   googleApiKey: string | undefined;
+  planYolo: boolean;
 }
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -20,6 +21,7 @@ export function resolveConfig(options: {
   model?: string;
   approval?: string;
   session?: string;
+  planYolo?: boolean;
 }): CliConfig {
   const cwd = resolve(options.cwd ?? process.cwd());
   const approval = parseApproval(options.approval);
@@ -30,6 +32,7 @@ export function resolveConfig(options: {
     approval,
     sessionId: options.session ?? DEFAULT_SESSION,
     googleApiKey: process.env.GOOGLE_API_KEY,
+    planYolo: options.planYolo ?? false,
   };
 }
 

@@ -1,6 +1,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import type { InteractionMode } from '../plan/modes.js';
+import type { PlanDocument } from '../plan/schema.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -11,6 +13,8 @@ export interface SessionData {
   id: string;
   messages: ChatMessage[];
   updatedAt: string;
+  interactionMode?: InteractionMode;
+  lastPlan?: PlanDocument;
 }
 
 const SESSIONS_DIR = join(homedir(), '.lemon-cli', 'sessions');

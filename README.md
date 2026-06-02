@@ -1,6 +1,6 @@
 # Lemon AI Agent CLI
 
-A generic CLI agent powered by [lemon-ai-agent](https://www.npmjs.com/package/lemon-ai-agent) and Google Gemini. Read/write files, run shell commands, analyze websites with PageSpeed Insights, and more.
+A generic CLI agent powered by [lemon-ai-agent](https://www.npmjs.com/package/lemon-ai-agent) and Google Gemini. Read/write files, run shell commands, analyze websites with PageSpeed Insights, plan multi-step work, and orchestrate specialist agents.
 
 ## Setup
 
@@ -16,7 +16,6 @@ cp .env.example .env
 
 ```bash
 npm run lemon
-# or after build: npx lemon
 ```
 
 ### One-shot print mode
@@ -25,6 +24,7 @@ npm run lemon
 npm run lemon -- -p "List files in the current directory"
 npm run lemon -- --print "Summarize this project"
 npm run lemon -- -p -f ./task.md
+npm run lemon -- -p "refactor auth module" --plan-yolo
 ```
 
 ### Configuration
@@ -38,26 +38,56 @@ npm run lemon -- --cwd ./my-app --approval smart
 |------|-------------|
 | `-p, --print <prompt>` | Run once and print result |
 | `-f, --file <path>` | Read prompt from file |
+| `--plan-yolo` | One-shot: plan and auto-select best path (requires `-p`) |
 | `--cwd <path>` | Workspace root for tools |
 | `--approval always\|smart\|yolo` | Shell approval mode (default: `always`) |
-| `--model <model>` | Model id (default: `gemini-2.5-flash`; `gemini-2.0-flash` retired June 2026) |
+| `--model <model>` | Model id (default: `gemini-2.5-flash`) |
 | `--session <id>` | Session id for history |
 
-### REPL bang commands
+## Interaction modes
+
+| Mode | How to activate | Behavior |
+|------|-----------------|----------|
+| `direct` | Default, `/d`, Shift+Tab | Execute immediately |
+| `plan` | `/plan`, `/p`, Shift+Tab | Plan, critical Q&A, approval before execution |
+| `plan-yolo` | `/plan-yolo`, `/py`, Shift+Tab, `--plan-yolo` | Plan, auto-select highest-scored path |
+| `plan-verbose` | `/plan-verbose`, `/pv`, Shift+Tab | Verbose Q&A, refined plan, approval |
+
+**Shift+Tab** cycles: `direct` → `plan` → `plan-yolo` → `plan-verbose` → `direct` (at empty prompt).
+
+Mode is shown in the REPL prompt: `lemon [plan-yolo]> `
+
+### REPL commands
 
 | Input | Behavior |
 |-------|----------|
 | `!npm test` | Run shell command directly (bypasses agent) |
 | `!!` | Repeat last bang command |
+| `/p`, `/plan` | Set plan mode (optionally with prompt: `/p fix auth`) |
+| `/py`, `/plan-yolo` | Set plan-yolo mode |
+| `/pv`, `/plan-verbose` | Set plan-verbose mode |
+| `/d`, `/direct` | Set direct mode |
 | `/exit` | Quit |
 
-### Approval modes
+### Approval modes (shell commands)
 
 | Mode | Behavior |
 |------|----------|
 | `always` (default) | Prompt before every shell command |
 | `smart` | Auto-run benign commands; prompt for destructive ones |
 | `yolo` | Run all commands without prompts |
+
+## Multi-agent execution
+
+In plan modes, approved plans execute via **LemonGrove** with five specialists:
+
+- `researcher_agent` — research and codebase exploration
+- `coder_agent` — write and edit code
+- `tester_agent` — run tests and verify
+- `reviewer_agent` — review quality
+- `general_agent` — general tasks
+
+Steps run in **parallel batches** (same `parallelGroup`) or **sequential waves** (via `dependsOn`), based on the plan topology.
 
 ## Tools
 
