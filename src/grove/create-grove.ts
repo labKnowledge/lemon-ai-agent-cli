@@ -18,26 +18,29 @@ function orchestratorPrompt(cwd: string): string {
 Workspace root: ${cwd}
 
 Coordinate specialists when needed. You also have direct access to workspace tools for simple tasks.
+When the user asks to scan, explore, or understand the project, use scan_codebase first.
+Never list or glob inside node_modules, .venv, dist, or other dependency/build directories.
 Prefer delegating complex work to the appropriate specialist agent.
 Summarize outcomes clearly when synthesizing specialist outputs.`;
 }
 
 export async function createGrove(config: CliConfig): Promise<LemonGroveType> {
   const model = (await resolveModel(config.model)) as BaseChatModel;
+  const tools = await createTools(config);
 
   const [researcher, coder, tester, reviewer, general] = await Promise.all([
-    createResearcher(config),
-    createCoder(config),
-    createTester(config),
-    createReviewer(config),
-    createGeneral(config),
+    createResearcher(config, tools),
+    createCoder(config, tools),
+    createTester(config, tools),
+    createReviewer(config, tools),
+    createGeneral(config, tools),
   ]);
 
   const grove = new LemonGrove(
     {
       model,
       systemMessage: orchestratorPrompt(config.cwd),
-      tools: createTools(config),
+      tools,
       maxIterations: 25,
     },
     {

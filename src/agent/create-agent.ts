@@ -6,7 +6,7 @@ import { buildSystemPrompt } from './system-prompt.js';
 import { createTools } from '../tools/index.js';
 
 export async function createAgent(config: CliConfig): Promise<LemonAgent> {
-  const tools = createTools(config);
+  const tools = await createTools(config);
 
   return createLemonAgent({
     model: config.model,

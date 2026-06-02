@@ -53,7 +53,7 @@ npm run lemon -- --cwd ./my-app --approval smart
 | `plan-yolo` | `/plan-yolo`, `/py`, Shift+Tab, `--plan-yolo` | Plan, auto-select highest-scored path |
 | `plan-verbose` | `/plan-verbose`, `/pv`, Shift+Tab | Verbose Q&A, refined plan, approval |
 
-**Shift+Tab** cycles: `direct` → `plan` → `plan-yolo` → `plan-verbose` → `direct` (at empty prompt).
+**Shift+Tab** cycles: `direct` → `plan` → `plan-yolo` → `plan-verbose` → `direct`. Works while typing — your input text is preserved.
 
 Mode is shown in the REPL prompt: `lemon [plan-yolo]> `
 
@@ -63,6 +63,7 @@ Mode is shown in the REPL prompt: `lemon [plan-yolo]> `
 |-------|----------|
 | `!npm test` | Run shell command directly (bypasses agent) |
 | `!!` | Repeat last bang command |
+| `/scan` | Scan codebase and save project context to session |
 | `/p`, `/plan` | Set plan mode (optionally with prompt: `/p fix auth`) |
 | `/py`, `/plan-yolo` | Set plan-yolo mode |
 | `/pv`, `/plan-verbose` | Set plan-verbose mode |
@@ -76,6 +77,22 @@ Mode is shown in the REPL prompt: `lemon [plan-yolo]> `
 | `always` (default) | Prompt before every shell command |
 | `smart` | Auto-run benign commands; prompt for destructive ones |
 | `yolo` | Run all commands without prompts |
+
+## Codebase scan and smart ignores
+
+When you say "scan the codebase" (or run `/scan`), the agent builds a **project context** snapshot:
+
+- Detected stack (Node, Python, Rust, Go, Java from marker files)
+- Key config files and shallow directory tree (depth 2)
+- Persisted in session for follow-up prompts
+
+**Automatically excluded** from listing, globbing, and scans:
+
+- `node_modules`, `.git`, `dist`, `build`, `.venv`, `venv`, `__pycache__`
+- Profile-specific dirs (e.g. `target/` for Rust, `.tox/` for Python)
+- Patterns from `.gitignore` and `.cursorignore`
+
+Follow-up messages include the saved workspace context so the agent understands your project without re-scanning.
 
 ## Multi-agent execution
 
@@ -92,6 +109,7 @@ Steps run in **parallel batches** (same `parallelGroup`) or **sequential waves**
 ## Tools
 
 - `read_file`, `write_file`, `list_directory`, `glob_files`
+- `scan_codebase` — build project context (stack, layout, key files)
 - `run_command` — shell commands in workspace
 - `pagespeed_test` — Google PageSpeed Insights (pagespeed.web.dev backend)
 

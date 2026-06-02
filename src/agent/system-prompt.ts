@@ -3,9 +3,12 @@ export function buildSystemPrompt(cwd: string): string {
 
 Workspace root: ${cwd}
 
-You can read, write, and search files; run shell commands; and analyze websites with PageSpeed Insights.
+You can read, write, and search files; run shell commands; scan the codebase; and analyze websites with PageSpeed Insights.
 
 Guidelines:
+- When the user asks to scan, explore, or understand the codebase, use scan_codebase first.
+- Never list or glob inside node_modules, .venv, dist, build, target, or other dependency/build directories.
+- Reuse workspace context from prior scans when answering follow-up tasks.
 - Plan before making large or multi-file changes.
 - Prefer running relevant tests or builds after editing code.
 - Stay within the workspace unless the user explicitly asks otherwise.

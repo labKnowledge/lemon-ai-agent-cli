@@ -15,6 +15,8 @@ export interface SessionData {
   updatedAt: string;
   interactionMode?: InteractionMode;
   lastPlan?: PlanDocument;
+  codebaseContext?: string;
+  codebaseScannedAt?: string;
 }
 
 const SESSIONS_DIR = join(homedir(), '.lemon-cli', 'sessions');
@@ -47,6 +49,36 @@ export function buildInputWithHistory(messages: ChatMessage[], newInput: string)
     .join('\n\n');
 
   return `Previous conversation:\n${history}\n\nUser: ${newInput}`;
+}
+
+export function buildInputWithContext(
+  messages: ChatMessage[],
+  newInput: string,
+  codebaseContext?: string,
+): string {
+  const withHistory = buildInputWithHistory(messages, newInput);
+
+  if (!codebaseContext) return withHistory;
+
+  const contextBlock = `Workspace context (from codebase scan):\n${codebaseContext}`;
+
+  if (messages.length === 0) {
+    return `${contextBlock}\n\nUser: ${newInput}`;
+  }
+
+  return `${contextBlock}\n\n${withHistory}`;
+}
+
+export async function saveCodebaseContext(
+  sessionId: string,
+  context: string,
+  scannedAt: string,
+): Promise<SessionData> {
+  const session = await loadSession(sessionId);
+  session.codebaseContext = context;
+  session.codebaseScannedAt = scannedAt;
+  await saveSession(session);
+  return session;
 }
 
 export async function appendTurn(

@@ -3,8 +3,13 @@ import { stdin, stdout as output } from 'node:process';
 import type { Interface } from 'node:readline';
 import type { InteractionMode } from '../plan/modes.js';
 import { cycleMode, formatModeChange } from '../plan/modes.js';
+import { refreshPromptPreservingInput } from './readline-utils.js';
 
-export type ModeChangeHandler = (mode: InteractionMode) => void;
+export type ModeChangeHandler = (
+  mode: InteractionMode,
+  savedLine: string,
+  savedCursor: number,
+) => void;
 
 const SHIFT_TAB_SEQUENCES = ['\x1b[Z', '\x1b[9\t'];
 
@@ -27,12 +32,11 @@ export function setupModeKeybindings(
 
     if (!isShiftTab) return;
 
-    const line = rl.line ?? '';
-    if (line.length > 0) return;
+    const savedLine = rl.line ?? '';
+    const savedCursor = rl.cursor ?? savedLine.length;
 
     const next = cycleMode(getMode());
-    onModeChange(next);
     output.write(`\n${formatModeChange(next)}\n`);
-    rl.prompt(true);
+    onModeChange(next, savedLine, savedCursor);
   });
 }

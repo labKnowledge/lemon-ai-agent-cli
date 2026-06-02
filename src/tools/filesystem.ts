@@ -1,10 +1,11 @@
 import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, relative } from 'node:path';
 import fg from 'fast-glob';
 import { lemonTool, z } from 'lemon-ai-agent';
 import { resolveWithinCwd } from './path-utils.js';
+import { isIgnored } from '../codebase/ignore.js';
 
-export function createFilesystemTools(workspaceCwd: string) {
+export function createFilesystemTools(workspaceCwd: string, ignorePatterns: string[]) {
   const readFileTool = lemonTool({
     name: 'read_file',
     description: 'Read the contents of a file in the workspace.',
@@ -48,32 +49,43 @@ export function createFilesystemTools(workspaceCwd: string) {
 
   const listDirectoryTool = lemonTool({
     name: 'list_directory',
-    description: 'List files and directories in the workspace.',
+    description: 'List files and directories in the workspace. Dependency and build dirs are excluded.',
     schema: z.object({
       path: z.string().optional().describe('Relative directory path (default: workspace root)'),
       recursive: z.boolean().optional().describe('List recursively'),
     }),
     run: async ({ path, recursive }) => {
       const resolved = resolveWithinCwd(workspaceCwd, path ?? '.');
+      const baseRel = relative(workspaceCwd, resolved) || '.';
 
       if (recursive) {
         const entries = await fg('**/*', {
           cwd: resolved,
-          dot: true,
+          dot: false,
           onlyFiles: false,
           markDirectories: true,
+          ignore: ignorePatterns,
         });
-        return entries.length ? entries.join('\n') : '(empty directory)';
+        const filtered = entries.filter((e) => {
+          const rel = baseRel === '.' ? e : `${baseRel}/${e}`;
+          return !isIgnored(rel, ignorePatterns);
+        });
+        return filtered.length ? filtered.join('\n') : '(empty directory)';
       }
 
       const entries = await readdir(resolved, { withFileTypes: true });
       const lines = await Promise.all(
-        entries.map(async (entry) => {
-          const suffix = entry.isDirectory() ? '/' : '';
-          const fullPath = resolveWithinCwd(resolved, entry.name);
-          const info = await stat(fullPath);
-          return `${entry.name}${suffix} (${info.size} bytes)`;
-        }),
+        entries
+          .filter((entry) => {
+            const rel = baseRel === '.' ? entry.name : `${baseRel}/${entry.name}`;
+            return !isIgnored(rel, ignorePatterns);
+          })
+          .map(async (entry) => {
+            const suffix = entry.isDirectory() ? '/' : '';
+            const fullPath = resolveWithinCwd(resolved, entry.name);
+            const info = await stat(fullPath);
+            return `${entry.name}${suffix} (${info.size} bytes)`;
+          }),
       );
       return lines.length ? lines.join('\n') : '(empty directory)';
     },
@@ -81,7 +93,7 @@ export function createFilesystemTools(workspaceCwd: string) {
 
   const globFilesTool = lemonTool({
     name: 'glob_files',
-    description: 'Find files matching a glob pattern in the workspace.',
+    description: 'Find files matching a glob pattern. node_modules, .venv, dist, and similar dirs are excluded.',
     schema: z.object({
       pattern: z.string().describe('Glob pattern, e.g. **/*.ts'),
     }),
@@ -90,8 +102,10 @@ export function createFilesystemTools(workspaceCwd: string) {
         cwd: workspaceCwd,
         dot: false,
         onlyFiles: true,
+        ignore: ignorePatterns,
       });
-      return matches.length ? matches.join('\n') : 'No files matched.';
+      const filtered = matches.filter((m) => !isIgnored(m, ignorePatterns));
+      return filtered.length ? filtered.join('\n') : 'No files matched.';
     },
   });
 

@@ -5,7 +5,7 @@ import { resolveConfig, maskKey } from './config.js';
 import { createAgent } from './agent/create-agent.js';
 import { createGrove } from './grove/create-grove.js';
 import { runRepl } from './session/repl.js';
-import { appendTurn, buildInputWithHistory, loadSession } from './session/memory.js';
+import { appendTurn, buildInputWithContext, loadSession } from './session/memory.js';
 import { defaultStreamHandlers, streamAgentResponse } from './ui/stream.js';
 import { runPlanPipeline } from './plan/pipeline.js';
 
@@ -100,7 +100,7 @@ async function runPrintMode(
   prompt: string,
 ): Promise<void> {
   const session = await loadSession(config.sessionId);
-  const agentInput = buildInputWithHistory(session.messages, prompt);
+  const agentInput = buildInputWithContext(session.messages, prompt, session.codebaseContext);
 
   const output = await streamAgentResponse(agent, agentInput, defaultStreamHandlers());
   process.stdout.write('\n');
@@ -114,7 +114,7 @@ async function runPrintPlanYolo(
   prompt: string,
 ): Promise<void> {
   const session = await loadSession(config.sessionId);
-  const agentInput = buildInputWithHistory(session.messages, prompt);
+  const agentInput = buildInputWithContext(session.messages, prompt, session.codebaseContext);
 
   const result = await runPlanPipeline('plan-yolo', agentInput, grove, config);
   process.stdout.write('\n');

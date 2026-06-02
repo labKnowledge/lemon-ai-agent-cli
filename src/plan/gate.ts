@@ -1,9 +1,9 @@
-import { createInterface } from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
+import { stdout as output } from 'node:process';
 import pc from 'picocolors';
 import type { PlanMode } from './modes.js';
 import type { PlanDocument, PlanOption } from './schema.js';
 import { renderPlanCard, renderSelectedApproach } from './render.js';
+import { askUser } from '../session/prompt.js';
 
 export type GateResult =
   | { action: 'execute'; plan: PlanDocument }
@@ -39,7 +39,6 @@ export async function runPlanGate(
     return promptApproval(plan, originalPrompt);
   }
 
-  // plan mode: critical questions only
   const withAnswers = await askCriticalQuestions(plan);
   if (withAnswers !== plan) {
     output.write(pc.dim('\n(Plan updated with your answers)\n'));
@@ -81,17 +80,11 @@ async function askCriticalQuestions(plan: PlanDocument): Promise<PlanDocument> {
 }
 
 async function askQuestions(questions: string[]): Promise<string[]> {
-  const rl = createInterface({ input, output });
   const answers: string[] = [];
 
-  try {
-    for (const question of questions) {
-      output.write(`\n${pc.yellow('?')} ${question}\n> `);
-      const answer = await rl.question('');
-      answers.push(answer);
-    }
-  } finally {
-    rl.close();
+  for (const question of questions) {
+    const answer = await askUser(`\n${pc.yellow('?')} ${question}\n> `);
+    answers.push(answer);
   }
 
   return answers;
@@ -101,33 +94,27 @@ async function promptApproval(
   plan: PlanDocument,
   originalPrompt: string,
 ): Promise<GateResult> {
-  const rl = createInterface({ input, output });
+  const answer = (
+    await askUser(
+      `\n${pc.bold('[y]')} approve  ${pc.bold('[e]')} edit  ${pc.bold('[n]')} cancel\n> `,
+    )
+  )
+    .trim()
+    .toLowerCase();
 
-  try {
-    output.write(
-      pc.bold('\n[y]') + ' approve  ' +
-      pc.bold('[e]') + ' edit  ' +
-      pc.bold('[n]') + ' cancel\n> ',
-    );
-    const answer = (await rl.question('')).trim().toLowerCase();
-
-    if (answer === 'y' || answer === 'yes') {
-      const selected = selectOptionForApproval(plan);
-      output.write(renderSelectedApproach(selected));
-      return { action: 'execute', plan: selected };
-    }
-
-    if (answer === 'e' || answer === 'edit') {
-      output.write('Enter revised request:\n> ');
-      const revision = await rl.question('');
-      return { action: 'edit', revision: revision.trim() || originalPrompt };
-    }
-
-    output.write(pc.yellow('\nPlan cancelled.\n'));
-    return { action: 'cancel' };
-  } finally {
-    rl.close();
+  if (answer === 'y' || answer === 'yes') {
+    const selected = selectOptionForApproval(plan);
+    output.write(renderSelectedApproach(selected));
+    return { action: 'execute', plan: selected };
   }
+
+  if (answer === 'e' || answer === 'edit') {
+    const revision = await askUser('Enter revised request:\n> ');
+    return { action: 'edit', revision: revision.trim() || originalPrompt };
+  }
+
+  output.write(pc.yellow('\nPlan cancelled.\n'));
+  return { action: 'cancel' };
 }
 
 function selectOptionForApproval(plan: PlanDocument): PlanDocument {

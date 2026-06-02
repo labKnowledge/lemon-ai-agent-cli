@@ -1,8 +1,9 @@
-import { createInterface } from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
+import { stdout as output } from 'node:process';
+import pc from 'picocolors';
 import type { HumanGate, PendingAction } from 'lemon-ai-agent';
 import type { ApprovalMode } from './modes.js';
 import { requiresApproval } from './modes.js';
+import { askUser } from '../session/prompt.js';
 
 export function createShellGate(mode: ApprovalMode): HumanGate {
   return async (action: PendingAction) => {
@@ -27,12 +28,6 @@ export function createShellGate(mode: ApprovalMode): HumanGate {
 }
 
 export async function promptApproval(command: string, cwd: string): Promise<boolean> {
-  const rl = createInterface({ input, output });
-  try {
-    output.write(`\n  Command: ${command}\n  CWD: ${cwd}\n  Approve? [y/N] `);
-    const answer = await rl.question('');
-    return answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes';
-  } finally {
-    rl.close();
-  }
+  const answer = await askUser(`\n  Command: ${command}\n  CWD: ${cwd}\n  Approve? [y/N] `);
+  return answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes';
 }

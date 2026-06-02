@@ -7,8 +7,15 @@ import type { CliConfig } from '../config.js';
 import type { InteractionMode } from '../plan/modes.js';
 import { parseSlashCommand, formatModeChange, modeLabel } from '../plan/modes.js';
 import { routeInput } from '../plan/pipeline.js';
+import { scanCodebase } from '../codebase/scan.js';
 import { executeShell, printShellResult } from '../tools/shell.js';
-import { appendTurn, buildInputWithHistory, loadSession, saveSession } from './memory.js';
+import {
+  appendTurn,
+  buildInputWithContext,
+  loadSession,
+  saveSession,
+  saveCodebaseContext,
+} from './memory.js';
 import {
   applyModeToSession,
   applyPlanToSession,
@@ -16,6 +23,8 @@ import {
   getInteractionMode,
 } from './mode-state.js';
 import { setupModeKeybindings } from './keybindings.js';
+import { refreshPromptPreservingInput } from './readline-utils.js';
+import { setSharedPromptAsk } from './prompt.js';
 
 export async function runRepl(
   agent: LemonAgent,
@@ -29,19 +38,21 @@ export async function runRepl(
   output.write(
     pc.bold('Lemon Agent CLI') +
       ` | model: ${config.model} | cwd: ${config.cwd} | approval: ${config.approval}\n` +
-      `Mode: ${modeLabel(interactionMode)} | Shift+Tab cycle | /p /py /pv /d | ! shell | /exit\n\n`,
+      `Mode: ${modeLabel(interactionMode)} | Shift+Tab cycle | /p /py /pv /d | /scan | ! shell | /exit\n\n`,
   );
 
   const rl = createInterface({ input, output, prompt: buildPrompt(interactionMode) });
+  setSharedPromptAsk((p) => rl.question(p));
 
   setupModeKeybindings(
     rl,
     () => interactionMode,
-    (mode) => {
+    (mode, savedLine, savedCursor) => {
       interactionMode = mode;
       session = applyModeToSession(session, mode);
       void saveSession(session);
       rl.setPrompt(buildPrompt(interactionMode));
+      refreshPromptPreservingInput(rl, savedLine, savedCursor);
     },
   );
 
@@ -57,6 +68,15 @@ export async function runRepl(
 
     if (trimmed === '/exit' || trimmed === '/quit') {
       break;
+    }
+
+    if (trimmed === '/scan') {
+      output.write(pc.cyan('\nScanning codebase...\n'));
+      const result = await scanCodebase(config.cwd, { depth: 2 });
+      session = await saveCodebaseContext(config.sessionId, result.summary, result.scannedAt);
+      output.write(`\n${result.summary}\n\n`);
+      rl.prompt();
+      continue;
     }
 
     if (trimmed.startsWith('!')) {
@@ -101,7 +121,11 @@ export async function runRepl(
       userInput = slash.prompt ?? trimmed;
     }
 
-    const agentInput = buildInputWithHistory(session.messages, userInput);
+    const agentInput = buildInputWithContext(
+      session.messages,
+      userInput,
+      session.codebaseContext,
+    );
     output.write('\n');
 
     const result = await routeInput(modeForTurn, agentInput, agent, grove, config);
@@ -121,6 +145,7 @@ export async function runRepl(
   }
 
   rl.close();
+  setSharedPromptAsk(null);
   output.write('\n');
 }
 
