@@ -1,31 +1,39 @@
 {
   "name": "lemon-ai-agent-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI agent powered by lemon-ai-agent and Google Gemini",
   "type": "module",
   "bin": {
-    "lemon": "./dist/bin/lemon.js"
+    "lemon": "./bin/lemon.ts"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx bin/lemon.ts",
-    "start": "node dist/bin/lemon.js",
-    "lemon": "tsx bin/lemon.ts"
+    "clean": "rm -rf dist",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build bin/lemon.ts --outdir dist --target bun",
+    "dev": "bun run bin/lemon.ts",
+    "lemon": "bun run bin/lemon.ts",
+    "start": "bun run bin/lemon.ts",
+    "cfbd": "bun run clean && bun run format && bun run typecheck && bun run build && bun run dev"
   },
   "engines": {
-    "node": ">=20.15.0"
+    "bun": ">=1.1.0"
   },
   "license": "MIT",
   "dependencies": {
+    "@opentui/core": "^0.2.15",
+    "@opentui/react": "^0.2.15",
     "commander": "^13.1.0",
     "dotenv": "^16.4.7",
     "fast-glob": "^3.3.3",
     "lemon-ai-agent": "^1.3.1",
-    "picocolors": "^1.1.1"
+    "react": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.2",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   }
 }

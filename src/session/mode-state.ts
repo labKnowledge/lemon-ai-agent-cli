@@ -11,16 +11,10 @@ export function buildPrompt(mode: InteractionMode): string {
   return `lemon [${modeLabel(mode)}]> `;
 }
 
-export function applyModeToSession(
-  session: SessionData,
-  mode: InteractionMode,
-): SessionData {
+export function applyModeToSession(session: SessionData, mode: InteractionMode): SessionData {
   return { ...session, interactionMode: mode };
 }
 
-export function applyPlanToSession(
-  session: SessionData,
-  plan: PlanDocument,
-): SessionData {
+export function applyPlanToSession(session: SessionData, plan: PlanDocument): SessionData {
   return { ...session, lastPlan: plan };
 }

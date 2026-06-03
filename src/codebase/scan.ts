@@ -1,10 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import {
-  detectProfiles,
-  KEY_FILES_BY_PROFILE,
-  type ProjectProfile,
-} from './profiles.js';
+import { detectProfiles, KEY_FILES_BY_PROFILE, type ProjectProfile } from './profiles.js';
 import { isIgnored, resolveIgnorePatterns } from './ignore.js';
 
 export interface ScanOptions {
@@ -29,11 +25,7 @@ async function readHead(path: string, lines = 40): Promise<string | null> {
   }
 }
 
-async function buildTree(
-  cwd: string,
-  ignorePatterns: string[],
-  maxDepth: number,
-): Promise<string> {
+async function buildTree(cwd: string, ignorePatterns: string[], maxDepth: number): Promise<string> {
   const lines: string[] = [];
 
   async function walk(dir: string, depth: number, prefix: string): Promise<void> {
@@ -84,10 +76,7 @@ function inferStackLabels(profiles: ProjectProfile[], cwd: string): string[] {
   return labels;
 }
 
-async function collectKeyFiles(
-  cwd: string,
-  profiles: ProjectProfile[],
-): Promise<string[]> {
+async function collectKeyFiles(cwd: string, profiles: ProjectProfile[]): Promise<string[]> {
   const candidates = new Set<string>(['README.md']);
 
   for (const profile of profiles) {
@@ -126,10 +115,7 @@ async function extractScripts(cwd: string, profiles: ProjectProfile[]): Promise<
   }
 }
 
-export async function scanCodebase(
-  cwd: string,
-  options: ScanOptions = {},
-): Promise<ScanResult> {
+export async function scanCodebase(cwd: string, options: ScanOptions = {}): Promise<ScanResult> {
   const depth = options.depth ?? 2;
   const ignorePatterns = await resolveIgnorePatterns(cwd);
   const profiles = await detectProfiles(cwd);

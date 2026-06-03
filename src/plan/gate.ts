@@ -1,9 +1,8 @@
-import { stdout as output } from 'node:process';
-import pc from 'picocolors';
 import type { PlanMode } from './modes.js';
-import type { PlanDocument, PlanOption } from './schema.js';
+import type { PlanDocument } from './schema.js';
 import { renderPlanCard, renderSelectedApproach } from './render.js';
 import { askUser } from '../session/prompt.js';
+import { bridgeAppend } from '../ui/bridge.js';
 
 export type GateResult =
   | { action: 'execute'; plan: PlanDocument }
@@ -27,11 +26,11 @@ export async function runPlanGate(
   plan: PlanDocument,
   originalPrompt: string,
 ): Promise<GateResult> {
-  output.write(renderPlanCard(plan));
+  bridgeAppend({ type: 'plan', text: renderPlanCard(plan) });
 
   if (mode === 'plan-yolo') {
     const selected = autoSelectOption(plan);
-    output.write(renderSelectedApproach(selected));
+    bridgeAppend({ type: 'plan', text: renderSelectedApproach(selected), fg: '#9ece6a' });
     return { action: 'execute', plan: selected };
   }
 
@@ -41,7 +40,7 @@ export async function runPlanGate(
 
   const withAnswers = await askCriticalQuestions(plan);
   if (withAnswers !== plan) {
-    output.write(pc.dim('\n(Plan updated with your answers)\n'));
+    bridgeAppend({ type: 'system', text: '(Plan updated with your answers)', fg: '#565f89' });
   }
   return promptApproval(withAnswers, originalPrompt);
 }
@@ -49,10 +48,14 @@ export async function runPlanGate(
 export async function collectVerboseContext(plan: PlanDocument): Promise<string | undefined> {
   if (plan.clarifyingQuestions.length === 0) return undefined;
 
-  output.write(pc.bold('\n── Clarifying Questions ──\n'));
+  bridgeAppend({ type: 'system', text: '── Clarifying Questions ──', fg: '#c0caf5' });
   const answers = await askQuestions(
     plan.clarifyingQuestions.map((q) => {
-      output.write(pc.dim(`  (${q.priority}) ${q.why}\n`));
+      bridgeAppend({
+        type: 'system',
+        text: `  (${q.priority}) ${q.why}`,
+        fg: '#565f89',
+      });
       return q.question;
     }),
   );
@@ -69,9 +72,7 @@ async function askCriticalQuestions(plan: PlanDocument): Promise<PlanDocument> {
   const answers = await askQuestions(critical.map((q) => q.question));
   if (answers.every((a) => !a.trim())) return plan;
 
-  const appendix = critical
-    .map((q, i) => `Q: ${q.question}\nA: ${answers[i]}`)
-    .join('\n\n');
+  const appendix = critical.map((q, i) => `Q: ${q.question}\nA: ${answers[i]}`).join('\n\n');
 
   return {
     ...plan,
@@ -83,43 +84,34 @@ async function askQuestions(questions: string[]): Promise<string[]> {
   const answers: string[] = [];
 
   for (const question of questions) {
-    const answer = await askUser(`\n${pc.yellow('?')} ${question}\n> `);
+    const answer = await askUser(`? ${question}`);
     answers.push(answer);
   }
 
   return answers;
 }
 
-async function promptApproval(
-  plan: PlanDocument,
-  originalPrompt: string,
-): Promise<GateResult> {
-  const answer = (
-    await askUser(
-      `\n${pc.bold('[y]')} approve  ${pc.bold('[e]')} edit  ${pc.bold('[n]')} cancel\n> `,
-    )
-  )
-    .trim()
-    .toLowerCase();
+async function promptApproval(plan: PlanDocument, originalPrompt: string): Promise<GateResult> {
+  const answer = (await askUser('[y] approve  [e] edit  [n] cancel')).trim().toLowerCase();
 
   if (answer === 'y' || answer === 'yes') {
     const selected = selectOptionForApproval(plan);
-    output.write(renderSelectedApproach(selected));
+    bridgeAppend({ type: 'plan', text: renderSelectedApproach(selected), fg: '#9ece6a' });
     return { action: 'execute', plan: selected };
   }
 
   if (answer === 'e' || answer === 'edit') {
-    const revision = await askUser('Enter revised request:\n> ');
+    const revision = await askUser('Enter revised request:');
     return { action: 'edit', revision: revision.trim() || originalPrompt };
   }
 
-  output.write(pc.yellow('\nPlan cancelled.\n'));
+  bridgeAppend({ type: 'system', text: 'Plan cancelled.', fg: '#e0af68' });
   return { action: 'cancel' };
 }
 
 function selectOptionForApproval(plan: PlanDocument): PlanDocument {
   const recommended = plan.options.find((o) => o.id === plan.recommendedOptionId);
-  const selected: PlanOption = recommended ?? plan.options[0]!;
+  const selected = recommended ?? plan.options[0]!;
   return {
     ...plan,
     selectedApproach: `${selected.title}: ${selected.description}`,

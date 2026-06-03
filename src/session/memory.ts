@@ -92,3 +92,13 @@ export async function appendTurn(
   await saveSession(session);
   return session;
 }
+
+export async function compactSession(sessionId: string, summary: string): Promise<SessionData> {
+  const session = await loadSession(sessionId);
+  session.messages = [
+    { role: 'user', content: '(Earlier conversation summarized)' },
+    { role: 'assistant', content: summary },
+  ];
+  await saveSession(session);
+  return session;
+}

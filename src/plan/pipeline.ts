@@ -7,7 +7,7 @@ import { createPlanner, generatePlan } from './planner.js';
 import { runPlanGate, collectVerboseContext } from './gate.js';
 import { executePlan } from './executor.js';
 import type { PlanDocument } from './schema.js';
-import { streamAgentResponse, defaultStreamHandlers } from '../ui/stream.js';
+import { streamAgentResponse, getStreamHandlers } from '../ui/stream.js';
 
 export interface PlanPipelineResult {
   output: string;
@@ -31,7 +31,6 @@ export async function runPlanPipeline(
     }
   }
 
-  // Gate loop supports edit → re-plan
   while (true) {
     const gateResult = await runPlanGate(mode, plan, userInput);
 
@@ -50,11 +49,8 @@ export async function runPlanPipeline(
   }
 }
 
-export async function runDirectMode(
-  agent: LemonAgent,
-  userInput: string,
-): Promise<string> {
-  return streamAgentResponse(agent, userInput, defaultStreamHandlers());
+export async function runDirectMode(agent: LemonAgent, userInput: string): Promise<string> {
+  return streamAgentResponse(agent, userInput, getStreamHandlers());
 }
 
 export async function routeInput(

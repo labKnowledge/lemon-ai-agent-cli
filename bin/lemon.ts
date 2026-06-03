@@ -1,5 +1,5 @@
-#!/usr/bin/env node
-import { runCli } from '../src/index.js';
+#!/usr/bin/env bun
+import { runCli } from '../src/index.ts';
 
 runCli(process.argv).catch((err) => {
   console.error(err);

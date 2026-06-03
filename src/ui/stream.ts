@@ -1,4 +1,5 @@
-import pc from 'picocolors';
+import type { UiBridge } from './bridge.js';
+import { bridgeAppend, bridgeAppendToken, nextChunkId } from './bridge.js';
 
 export interface StreamHandlers {
   onToken?: (text: string) => void;
@@ -48,16 +49,32 @@ export async function streamAgentResponse(
   return output;
 }
 
-export function defaultStreamHandlers(): StreamHandlers {
+export function createTuiStreamHandlers(bridge?: UiBridge | null): StreamHandlers {
+  const b = bridge ?? null;
   return {
-    onToken: (text) => process.stdout.write(text),
+    onToken: (text) => {
+      if (b) {
+        b.appendToken(text);
+      } else {
+        bridgeAppendToken(text);
+      }
+    },
     onToolStart: (tool, input) => {
       const args = formatToolInput(input);
-      process.stdout.write(`\n${pc.cyan('[tool]')} ${pc.bold(tool)}${args ? ` ${args}` : ''}\n`);
+      const line = `[tool] ${tool}${args ? ` ${args}` : ''}`;
+      if (b) {
+        b.append({ type: 'tool', text: line, fg: '#7dcfff' });
+      } else {
+        bridgeAppend({ type: 'tool', text: line, fg: '#7dcfff' });
+      }
     },
     onToolEnd: () => {},
-    onDone: () => process.stdout.write('\n'),
+    onDone: () => {},
   };
+}
+
+export function getStreamHandlers(): StreamHandlers {
+  return createTuiStreamHandlers();
 }
 
 function formatToolInput(input: unknown): string {

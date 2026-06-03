@@ -88,11 +88,7 @@ function matchPattern(relativePath: string, pattern: string): boolean {
     return regex.test(path) || path.split('/').some((seg) => regex.test(seg));
   }
 
-  return (
-    path === pat ||
-    path.startsWith(`${pat}/`) ||
-    path.split('/').includes(pat)
-  );
+  return path === pat || path.startsWith(`${pat}/`) || path.split('/').includes(pat);
 }
 
 const IGNORED_DIR_NAMES = new Set([

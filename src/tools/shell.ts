@@ -4,6 +4,7 @@ import type { ApprovalMode } from '../approval/modes.js';
 import { requiresApproval } from '../approval/modes.js';
 import { promptApproval } from '../approval/gate.js';
 import { resolveWithinCwd } from './path-utils.js';
+import { bridgeAppend } from '../ui/bridge.js';
 
 const MAX_OUTPUT = 32_768;
 const DEFAULT_TIMEOUT = 120_000;
@@ -17,7 +18,6 @@ export interface ShellResult {
 export interface ShellRunnerOptions {
   workspaceCwd: string;
   approval: ApprovalMode;
-  /** When true, skip interactive approval (used when gate already handled it). */
   skipApproval?: boolean;
 }
 
@@ -55,11 +55,7 @@ export async function executeShell(
   }
 }
 
-function runShellProcess(
-  command: string,
-  cwd: string,
-  timeoutMs: number,
-): Promise<ShellResult> {
+function runShellProcess(command: string, cwd: string, timeoutMs: number): Promise<ShellResult> {
   return new Promise((resolve) => {
     const child = spawn(command, {
       cwd,
@@ -134,10 +130,7 @@ export function createShellTool(workspaceCwd: string, approval: ApprovalMode) {
         .string()
         .optional()
         .describe('Subdirectory within workspace (defaults to workspace root)'),
-      timeout_ms: z
-        .number()
-        .optional()
-        .describe('Timeout in milliseconds (default 120000)'),
+      timeout_ms: z.number().optional().describe('Timeout in milliseconds (default 120000)'),
     }),
     irreversible: approval !== 'yolo',
     run: async ({ command, cwd, timeout_ms }) => {
@@ -154,11 +147,13 @@ export function createShellTool(workspaceCwd: string, approval: ApprovalMode) {
 }
 
 export function printShellResult(result: ShellResult): void {
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
+  const parts: string[] = [];
+  if (result.stdout) parts.push(result.stdout);
+  if (result.stderr) parts.push(result.stderr);
   if (!result.stdout && !result.stderr) {
-    process.stdout.write(`\n(exit code ${result.exitCode})\n`);
+    parts.push(`(exit code ${result.exitCode})`);
   } else if (result.exitCode !== 0) {
-    process.stdout.write(`\n(exit code ${result.exitCode})\n`);
+    parts.push(`(exit code ${result.exitCode})`);
   }
+  bridgeAppend({ type: 'shell', text: parts.join('\n'), fg: '#a9b1d6' });
 }

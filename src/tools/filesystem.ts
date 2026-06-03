@@ -34,7 +34,8 @@ export function createFilesystemTools(workspaceCwd: string, ignorePatterns: stri
 
   const writeFileTool = lemonTool({
     name: 'write_file',
-    description: 'Write or overwrite a file in the workspace. Creates parent directories if needed.',
+    description:
+      'Write or overwrite a file in the workspace. Creates parent directories if needed.',
     schema: z.object({
       path: z.string().describe('Relative path to the file'),
       content: z.string().describe('File content to write'),
@@ -49,7 +50,8 @@ export function createFilesystemTools(workspaceCwd: string, ignorePatterns: stri
 
   const listDirectoryTool = lemonTool({
     name: 'list_directory',
-    description: 'List files and directories in the workspace. Dependency and build dirs are excluded.',
+    description:
+      'List files and directories in the workspace. Dependency and build dirs are excluded.',
     schema: z.object({
       path: z.string().optional().describe('Relative directory path (default: workspace root)'),
       recursive: z.boolean().optional().describe('List recursively'),
@@ -93,7 +95,8 @@ export function createFilesystemTools(workspaceCwd: string, ignorePatterns: stri
 
   const globFilesTool = lemonTool({
     name: 'glob_files',
-    description: 'Find files matching a glob pattern. node_modules, .venv, dist, and similar dirs are excluded.',
+    description:
+      'Find files matching a glob pattern. node_modules, .venv, dist, and similar dirs are excluded.',
     schema: z.object({
       pattern: z.string().describe('Glob pattern, e.g. **/*.ts'),
     }),

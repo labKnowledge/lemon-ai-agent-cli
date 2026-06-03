@@ -1,8 +1,8 @@
-import pc from 'picocolors';
 import type { LemonGrove } from 'lemon-ai-agent';
 import type { PlanDocument, PlanStep } from './schema.js';
 import { SPECIALIST_AGENT_MAP } from './schema.js';
-import { defaultStreamHandlers, streamAgentResponse } from '../ui/stream.js';
+import { getStreamHandlers, streamAgentResponse } from '../ui/stream.js';
+import { bridgeAppend } from '../ui/bridge.js';
 
 interface StepResult {
   stepId: string;
@@ -10,10 +10,7 @@ interface StepResult {
   output: string;
 }
 
-export async function executePlan(
-  grove: LemonGrove,
-  plan: PlanDocument,
-): Promise<string> {
+export async function executePlan(grove: LemonGrove, plan: PlanDocument): Promise<string> {
   if (plan.steps.length === 0) {
     return runGroveFallback(grove, plan);
   }
@@ -21,14 +18,17 @@ export async function executePlan(
   const waves = buildExecutionWaves(plan);
   const results: StepResult[] = [];
   const completed = new Set<string>();
+  const handlers = getStreamHandlers();
 
   for (let w = 0; w < waves.length; w++) {
     const wave = waves[w]!;
-    process.stdout.write(
-      `\n${pc.magenta(`[wave ${w + 1}/${waves.length}]`)} ${formatWaveLabel(wave)}\n`,
-    );
+    bridgeAppend({
+      type: 'wave',
+      text: `[wave ${w + 1}/${waves.length}] ${formatWaveLabel(wave)}`,
+      fg: '#bb9af7',
+    });
 
-    const waveResults = await runWave(grove, wave, plan, results, completed);
+    const waveResults = await runWave(grove, wave, plan, results, completed, handlers);
     results.push(...waveResults);
     for (const r of waveResults) completed.add(r.stepId);
   }
@@ -42,16 +42,17 @@ async function runWave(
   plan: PlanDocument,
   priorResults: StepResult[],
   completed: Set<string>,
+  handlers: ReturnType<typeof getStreamHandlers>,
 ): Promise<StepResult[]> {
   const allResults: StepResult[] = [];
 
   for (const batch of wave) {
     if (batch.length === 1) {
-      const result = await runStep(grove, batch[0]!, plan, priorResults, completed);
+      const result = await runStep(grove, batch[0]!, plan, priorResults, completed, handlers);
       allResults.push(result);
     } else {
       const parallelResults = await Promise.all(
-        batch.map((step) => runStep(grove, step, plan, priorResults, completed)),
+        batch.map((step) => runStep(grove, step, plan, priorResults, completed, handlers)),
       );
       allResults.push(...parallelResults);
     }
@@ -66,6 +67,7 @@ async function runStep(
   plan: PlanDocument,
   priorResults: StepResult[],
   completed: Set<string>,
+  handlers: ReturnType<typeof getStreamHandlers>,
 ): Promise<StepResult> {
   const agentName = SPECIALIST_AGENT_MAP[step.specialist];
   const specialist = grove.getSpecialist(agentName);
@@ -79,30 +81,34 @@ async function runStep(
 Plan summary: ${plan.summary}
 Selected approach: ${plan.selectedApproach}${context}`;
 
-  process.stdout.write(`${pc.cyan('[agent]')} ${agentName} — ${step.task.slice(0, 60)}\n`);
+  bridgeAppend({
+    type: 'agent',
+    text: `[agent] ${agentName} — ${step.task.slice(0, 60)}`,
+    fg: '#7dcfff',
+  });
 
   if (specialist) {
-    const output = await streamAgentResponse(specialist, input, defaultStreamHandlers());
+    const output = await streamAgentResponse(specialist, input, handlers);
     return { stepId: step.id, specialist: agentName, output };
   }
 
-  const output = await streamAgentResponse(
-    grove.getOrchestrator(),
-    input,
-    defaultStreamHandlers(),
-  );
+  const output = await streamAgentResponse(grove.getOrchestrator(), input, handlers);
   return { stepId: step.id, specialist: 'orchestrator', output };
 }
 
 async function runGroveFallback(grove: LemonGrove, plan: PlanDocument): Promise<string> {
-  process.stdout.write(`${pc.magenta('[fallback]')} delegating to grove orchestrator\n`);
+  bridgeAppend({
+    type: 'agent',
+    text: '[fallback] delegating to grove orchestrator',
+    fg: '#bb9af7',
+  });
   const input = `Execute this approved plan:
 
 Summary: ${plan.summary}
 Approach: ${plan.selectedApproach}
 Strategy: ${plan.executionStrategy}`;
 
-  return streamAgentResponse(grove.getOrchestrator(), input, defaultStreamHandlers());
+  return streamAgentResponse(grove.getOrchestrator(), input, getStreamHandlers());
 }
 
 function buildExecutionWaves(plan: PlanDocument): PlanStep[][][] {
@@ -118,7 +124,6 @@ function buildExecutionWaves(plan: PlanDocument): PlanStep[][][] {
     return [groups];
   }
 
-  // mixed: topological waves
   return buildTopologicalWaves(steps);
 }
 
@@ -129,13 +134,10 @@ function buildTopologicalWaves(steps: PlanStep[]): PlanStep[][][] {
 
   while (remaining.size > 0) {
     const ready = steps.filter(
-      (s) =>
-        remaining.has(s.id) &&
-        (s.dependsOn ?? []).every((dep) => completed.has(dep)),
+      (s) => remaining.has(s.id) && (s.dependsOn ?? []).every((dep) => completed.has(dep)),
     );
 
     if (ready.length === 0) {
-      // cycle or missing deps — run rest sequentially
       const rest = steps.filter((s) => remaining.has(s.id));
       waves.push(...rest.map((s) => [[s]]));
       break;

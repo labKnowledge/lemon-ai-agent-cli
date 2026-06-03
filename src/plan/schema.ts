@@ -1,12 +1,6 @@
 import { z } from 'lemon-ai-agent';
 
-export const specialistType = z.enum([
-  'researcher',
-  'coder',
-  'tester',
-  'reviewer',
-  'general',
-]);
+export const specialistType = z.enum(['researcher', 'coder', 'tester', 'reviewer', 'general']);
 
 export const planStepSchema = z.object({
   id: z.string(),

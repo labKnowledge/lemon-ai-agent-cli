@@ -86,12 +86,7 @@ export function createPagespeedTool(apiKey: string | undefined) {
         return 'Error: GOOGLE_API_KEY is not set. Required for PageSpeed Insights API.';
       }
 
-      const cats = categories ?? [
-        'performance',
-        'accessibility',
-        'seo',
-        'best-practices',
-      ];
+      const cats = categories ?? ['performance', 'accessibility', 'seo', 'best-practices'];
 
       const endpoint = new URL(PSI_ENDPOINT);
       endpoint.searchParams.set('url', url);
