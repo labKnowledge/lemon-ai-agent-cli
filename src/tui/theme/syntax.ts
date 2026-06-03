@@ -1,0 +1,28 @@
+import { SyntaxStyle } from '@opentui/core';
+
+export const LEMON_SYNTAX = SyntaxStyle.fromStyles({
+  default: { fg: '#c0caf5' },
+  heading: { fg: '#7aa2f7', bold: true },
+  bold: { fg: '#c0caf5', bold: true },
+  italic: { fg: '#c0caf5', italic: true },
+  link: { fg: '#7dcfff', underline: true },
+  linkText: { fg: '#7dcfff' },
+  code: { fg: '#9ece6a' },
+  codeBlock: { fg: '#9ece6a' },
+  blockQuote: { fg: '#565f89', italic: true },
+  list: { fg: '#c0caf5' },
+  hr: { fg: '#565f89' },
+  comment: { fg: '#565f89', italic: true },
+  keyword: { fg: '#bb9af7', bold: true },
+  string: { fg: '#9ece6a' },
+  number: { fg: '#ff9e64' },
+  function: { fg: '#7aa2f7' },
+  type: { fg: '#2ac3de' },
+  variable: { fg: '#c0caf5' },
+  property: { fg: '#73daca' },
+  constant: { fg: '#ff9e64' },
+  operator: { fg: '#89ddff' },
+  punctuation: { fg: '#a9b1d6' },
+  tag: { fg: '#f7768e' },
+  attribute: { fg: '#e0af68' },
+});

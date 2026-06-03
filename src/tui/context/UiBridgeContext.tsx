@@ -7,6 +7,7 @@ export interface UiBridgeContextValue {
   chunks: TranscriptChunk[];
   append: (chunk: Omit<TranscriptChunk, 'id'> & { id?: string }) => void;
   appendToken: (text: string) => void;
+  finalizeAssistant: (text: string) => void;
   pendingAsk: PendingAsk | null;
   setPendingAsk: (ask: PendingAsk | null) => void;
   processing: boolean;
@@ -36,6 +37,9 @@ export function UiBridgeProvider({
       appendToken(text) {
         value.appendToken(text);
       },
+      finalizeAssistant(text) {
+        value.finalizeAssistant(text);
+      },
       ask(prompt, options) {
         return new Promise<string>((resolve) => {
           value.setPendingAsk({
@@ -46,7 +50,7 @@ export function UiBridgeProvider({
         });
       },
     }),
-    [value],
+    [value.append, value.appendToken, value.finalizeAssistant, value.setPendingAsk],
   );
 
   useEffect(() => {

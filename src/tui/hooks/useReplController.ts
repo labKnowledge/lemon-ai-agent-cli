@@ -3,7 +3,7 @@ import type { LemonAgent } from 'lemon-ai-agent';
 import type { LemonGrove } from 'lemon-ai-agent';
 import type { CliConfig } from '../../config.ts';
 import type { InteractionMode } from '../../plan/modes.ts';
-import { formatModeChange, parseSlashCommand } from '../../plan/modes.ts';
+import { formatModeChange, isPlanMode, parseSlashCommand } from '../../plan/modes.ts';
 import { routeInput, runPlanPipeline } from '../../plan/pipeline.ts';
 import { scanCodebase } from '../../codebase/scan.ts';
 import { executeShell, printShellResult } from '../../tools/shell.ts';
@@ -43,6 +43,21 @@ export function useReplController(
   const appendSystem = useCallback(
     (text: string, fg = '#565f89') => {
       append(createChunk({ type: 'system', text, fg }));
+    },
+    [append],
+  );
+
+  const appendPlanSummary = useCallback(
+    (output: string) => {
+      append(
+        createChunk({
+          type: 'assistant',
+          text: output,
+          format: 'markdown',
+          streaming: false,
+          fg: '#c0caf5',
+        }),
+      );
     },
     [append],
   );
@@ -121,7 +136,9 @@ export function useReplController(
         }
 
         if (!result.cancelled && result.output) {
-          append(createChunk({ type: 'assistant', text: result.output, fg: '#c0caf5' }));
+          if (isPlanMode(modeForTurn)) {
+            appendPlanSummary(result.output);
+          }
           const updated = await appendTurn(config.sessionId, userInput, result.output);
           sessionRef.current.messages = updated.messages;
         }
@@ -138,6 +155,7 @@ export function useReplController(
       append,
       appendUser,
       appendSystem,
+      appendPlanSummary,
       setInteractionMode,
       setProcessing,
     ],
@@ -150,23 +168,20 @@ export function useReplController(
       try {
         const session = sessionRef.current;
         const agentInput = buildInputWithContext(session.messages, prompt, session.codebaseContext);
+        const mode = planYolo ? 'plan-yolo' : getInteractionMode(session);
 
         if (planYolo) {
           const result = await runPlanPipeline('plan-yolo', agentInput, grove, config);
           if (!result.cancelled && result.output) {
-            append(createChunk({ type: 'assistant', text: result.output, fg: '#c0caf5' }));
+            appendPlanSummary(result.output);
             await appendTurn(config.sessionId, prompt, result.output);
           }
         } else {
-          const result = await routeInput(
-            getInteractionMode(session),
-            agentInput,
-            agent,
-            grove,
-            config,
-          );
+          const result = await routeInput(mode, agentInput, agent, grove, config);
           if (!result.cancelled && result.output) {
-            append(createChunk({ type: 'assistant', text: result.output, fg: '#c0caf5' }));
+            if (isPlanMode(mode)) {
+              appendPlanSummary(result.output);
+            }
             await appendTurn(config.sessionId, prompt, result.output);
           }
         }
@@ -174,7 +189,7 @@ export function useReplController(
         setProcessing(false);
       }
     },
-    [agent, grove, config, sessionRef, append, appendUser, setProcessing],
+    [agent, grove, config, sessionRef, append, appendUser, appendPlanSummary, setProcessing],
   );
 
   return { handleLine, runOneShot, appendSystem };

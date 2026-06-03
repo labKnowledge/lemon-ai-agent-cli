@@ -26,11 +26,16 @@ export async function runPlanGate(
   plan: PlanDocument,
   originalPrompt: string,
 ): Promise<GateResult> {
-  bridgeAppend({ type: 'plan', text: renderPlanCard(plan) });
+  bridgeAppend({ type: 'plan', text: renderPlanCard(plan), format: 'markdown' });
 
   if (mode === 'plan-yolo') {
     const selected = autoSelectOption(plan);
-    bridgeAppend({ type: 'plan', text: renderSelectedApproach(selected), fg: '#9ece6a' });
+    bridgeAppend({
+      type: 'plan',
+      text: renderSelectedApproach(selected),
+      format: 'markdown',
+      fg: '#9ece6a',
+    });
     return { action: 'execute', plan: selected };
   }
 
@@ -96,7 +101,12 @@ async function promptApproval(plan: PlanDocument, originalPrompt: string): Promi
 
   if (answer === 'y' || answer === 'yes') {
     const selected = selectOptionForApproval(plan);
-    bridgeAppend({ type: 'plan', text: renderSelectedApproach(selected), fg: '#9ece6a' });
+    bridgeAppend({
+      type: 'plan',
+      text: renderSelectedApproach(selected),
+      format: 'markdown',
+      fg: '#9ece6a',
+    });
     return { action: 'execute', plan: selected };
   }
 

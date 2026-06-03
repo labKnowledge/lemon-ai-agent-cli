@@ -1,5 +1,5 @@
 import type { UiBridge } from './bridge.js';
-import { bridgeAppend, bridgeAppendToken, nextChunkId } from './bridge.js';
+import { bridgeAppend, bridgeAppendToken, bridgeFinalizeAssistant } from './bridge.js';
 
 export interface StreamHandlers {
   onToken?: (text: string) => void;
@@ -40,10 +40,13 @@ export async function streamAgentResponse(
       case 'done':
         if (c.result?.output) {
           output = c.result.output;
-          handlers.onDone?.(output);
         }
         break;
     }
+  }
+
+  if (output) {
+    handlers.onDone?.(output);
   }
 
   return output;
@@ -69,7 +72,13 @@ export function createTuiStreamHandlers(bridge?: UiBridge | null): StreamHandler
       }
     },
     onToolEnd: () => {},
-    onDone: () => {},
+    onDone: (output) => {
+      if (b) {
+        b.finalizeAssistant(output);
+      } else {
+        bridgeFinalizeAssistant(output);
+      }
+    },
   };
 }
 
