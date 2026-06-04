@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useKeyboard, useOnResize, useRenderer } from '@opentui/react';
-import type { TranscriptChunk } from '../ui/bridge.ts';
-import { normalizeChunk } from '../ui/bridge.ts';
+import type { ActivityState, TranscriptChunk } from '../ui/bridge.ts';
+import { normalizeChunk, thinkingActivity } from '../ui/bridge.ts';
+import { activityUsesSecondLine } from '../ui/activity.ts';
 import type { InteractionMode } from '../plan/modes.ts';
 import { cycleMode, formatModeChange } from '../plan/modes.ts';
 import { getInteractionMode } from '../session/mode-state.ts';
@@ -11,12 +12,15 @@ import type { TuiStartOptions } from './types.ts';
 import {
   createChunk,
   UiBridgeProvider,
+  useUiBridgeContext,
   type UiBridgeContextValue,
 } from './context/UiBridgeContext.tsx';
 import { StatusBar } from './components/StatusBar.tsx';
 import { InputBar } from './components/InputBar.tsx';
+import { CommandPalette } from './components/CommandPalette.tsx';
 import { PromptModal } from './components/PromptModal.tsx';
 import { useReplController } from './hooks/useReplController.ts';
+import { buildPaletteActions, loadSlashCommands, type SlashCommand } from './commands/registry.ts';
 import { TranscriptScrollback } from './scrollback/transcript-scrollback.ts';
 import { TUI_FOOTER_HEIGHT } from './bootstrap.tsx';
 
@@ -37,8 +41,22 @@ export function App({
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('direct');
   const [pendingAsk, setPendingAsk] = useState<UiBridgeContextValue['pendingAsk']>(null);
-  const [processing, setProcessing] = useState(false);
+  const [processing, setProcessingState] = useState(false);
+  const [activity, setActivityState] = useState<ActivityState | null>(null);
   const oneShotRan = useRef(false);
+
+  const setActivity = useCallback((state: ActivityState | null) => {
+    setActivityState(state);
+  }, []);
+
+  const setProcessing = useCallback((v: boolean) => {
+    setProcessingState(v);
+    if (!v) {
+      setActivityState(null);
+    } else {
+      setActivityState((prev) => prev ?? thinkingActivity());
+    }
+  }, []);
 
   const tokenBufferRef = useRef('');
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -48,17 +66,23 @@ export function App({
   useEffect(() => {
     void loadSession(config.sessionId).then((session) => {
       sessionRef.current = session;
-      setInteractionMode(getInteractionMode(session));
+      const mode = getInteractionMode(session);
+      setInteractionMode(mode);
+      scrollback.mountSessionHeader({
+        config,
+        mode,
+        width: renderer.terminalWidth,
+      });
       const welcome = createChunk({
         type: 'system',
-        text: `Mode: ${getInteractionMode(session)} | Shift+Tab cycle | /p /py /pv /d | /scan | ! shell | /exit`,
+        text: 'Ready. Type a message, /command, or !shell command.',
         fg: '#565f89',
       });
       setChunks([welcome]);
       scrollback.appendChunk(welcome);
       setSessionLoaded(true);
     });
-  }, [config.sessionId, scrollback]);
+  }, [config, config.sessionId, scrollback, renderer]);
 
   const flushTokenBuffer = useCallback(() => {
     const pending = tokenBufferRef.current;
@@ -170,13 +194,22 @@ export function App({
       setPendingAsk,
       processing,
       setProcessing,
+      activity,
+      setActivity,
     }),
-    [chunks, append, appendToken, finalizeAssistant, pendingAsk, processing],
+    [
+      chunks,
+      append,
+      appendToken,
+      finalizeAssistant,
+      pendingAsk,
+      processing,
+      setProcessing,
+      activity,
+      setActivity,
+    ],
   );
 
-  useEffect(() => {
-    renderer.footerHeight = pendingAsk ? TUI_FOOTER_HEIGHT + 4 : TUI_FOOTER_HEIGHT;
-  }, [renderer, pendingAsk]);
 
   if (!sessionLoaded || !sessionRef.current) {
     return (
@@ -200,6 +233,7 @@ export function App({
         pendingAsk={pendingAsk}
         setPendingAsk={setPendingAsk}
         processing={processing}
+        activity={activity}
         renderer={renderer}
         scrollback={scrollback}
         initialPrompt={initialPrompt}
@@ -221,6 +255,7 @@ function AppInner({
   pendingAsk,
   setPendingAsk,
   processing,
+  activity,
   renderer,
   scrollback,
   initialPrompt,
@@ -237,6 +272,7 @@ function AppInner({
   pendingAsk: UiBridgeContextValue['pendingAsk'];
   setPendingAsk: UiBridgeContextValue['setPendingAsk'];
   processing: boolean;
+  activity: ActivityState | null;
   renderer: ReturnType<typeof useRenderer>;
   scrollback: TranscriptScrollback;
   initialPrompt?: string;
@@ -244,17 +280,35 @@ function AppInner({
   planYoloOneShot?: boolean;
   oneShotRan: MutableRefObject<boolean>;
 }) {
-  const { handleLine, runOneShot, appendSystem } = useReplController(
+  const { chunks } = useUiBridgeContext();
+  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [autocompleteRows, setAutocompleteRows] = useState(0);
+  const [paletteRows, setPaletteRows] = useState(0);
+  const [insertText, setInsertText] = useState<string | null>(null);
+  const [bangTick, setBangTick] = useState(0);
+
+  useEffect(() => {
+    void loadSlashCommands(config.cwd).then(setSlashCommands);
+  }, [config.cwd]);
+
+  const { handleLine, runOneShot, appendSystem, runScan, getLastBangCommand } = useReplController(
     agent,
     grove,
     config,
     interactionMode,
     setInteractionMode,
     sessionRef,
+    slashCommands,
   );
 
+  const lastBangCommand = useMemo(() => {
+    void bangTick;
+    return getLastBangCommand();
+  }, [bangTick, getLastBangCommand]);
+
   useOnResize(() => {
-    scrollback.onResize();
+    scrollback.onResize({ config, mode: interactionMode, width: renderer.terminalWidth }, chunks);
   });
 
   const exitApp = useCallback(() => {
@@ -262,6 +316,48 @@ function AppInner({
     renderer.destroy();
     process.exit(0);
   }, [renderer, scrollback]);
+
+  const cycleInteractionMode = useCallback(() => {
+    const next = cycleMode(interactionMode);
+    setInteractionMode(next);
+    sessionRef.current = {
+      ...sessionRef.current,
+      interactionMode: next,
+    };
+    scrollback.replay({ config, mode: next, width: renderer.terminalWidth }, chunks);
+    appendSystem(formatModeChange(next));
+  }, [interactionMode, config, scrollback, chunks, appendSystem, sessionRef, setInteractionMode]);
+
+  const paletteActions = useMemo(
+    () =>
+      buildPaletteActions({
+        slashCommands,
+        onInsertSlash: (text) => {
+          setPaletteOpen(false);
+          setInsertText(text);
+        },
+        onScan: () => void runScan(),
+        onExit: exitApp,
+        onCycleMode: cycleInteractionMode,
+      }),
+    [slashCommands, runScan, exitApp, cycleInteractionMode],
+  );
+
+  const activityExtraRows =
+    activity && !pendingAsk && activityUsesSecondLine(activity.phase) ? 1 : 0;
+
+  useEffect(() => {
+    const extra = paletteOpen ? paletteRows : autocompleteRows;
+    renderer.footerHeight =
+      TUI_FOOTER_HEIGHT + (pendingAsk ? 4 : 0) + extra + activityExtraRows;
+  }, [
+    renderer,
+    pendingAsk,
+    paletteOpen,
+    paletteRows,
+    autocompleteRows,
+    activityExtraRows,
+  ]);
 
   useEffect(() => {
     if (!autoRun || !initialPrompt || oneShotRan.current) return;
@@ -273,6 +369,8 @@ function AppInner({
   }, [autoRun, initialPrompt, planYoloOneShot, runOneShot, exitApp, oneShotRan]);
 
   useKeyboard((key) => {
+    if (paletteOpen) return;
+
     if (pendingAsk) {
       if (key.name === 'escape') {
         pendingAsk.resolve('');
@@ -281,18 +379,17 @@ function AppInner({
       return;
     }
 
+    if (key.ctrl && key.name === 'p') {
+      setPaletteOpen(true);
+      return;
+    }
+
     const seq = key.sequence ?? '';
     const isShiftTab =
       seq === '\x1b[Z' || seq === '\x1b[9\t]' || (key.name === 'tab' && key.shift === true);
 
     if (isShiftTab && !processing) {
-      const next = cycleMode(interactionMode);
-      setInteractionMode(next);
-      sessionRef.current = {
-        ...sessionRef.current,
-        interactionMode: next,
-      };
-      appendSystem(formatModeChange(next));
+      cycleInteractionMode();
       return;
     }
 
@@ -304,6 +401,7 @@ function AppInner({
   const onSubmitLine = useCallback(
     async (line: string) => {
       const result = await handleLine(line);
+      setBangTick((t) => t + 1);
       if (result === 'exit') exitApp();
     },
     [handleLine, exitApp],
@@ -329,12 +427,30 @@ function AppInner({
         justifyContent: 'flex-end',
       }}
     >
-      <StatusBar config={config} mode={interactionMode} />
-      {!autoRun && (
+      <StatusBar
+        processing={processing}
+        activity={activity}
+        pendingAsk={Boolean(pendingAsk)}
+      />
+      {paletteOpen && (
+        <CommandPalette
+          actions={paletteActions}
+          onClose={() => setPaletteOpen(false)}
+          onHeightChange={setPaletteRows}
+        />
+      )}
+      {!autoRun && !paletteOpen && (
         <InputBar
           mode={interactionMode}
           disabled={processing || Boolean(pendingAsk)}
+          activityLabel={activity?.label}
+          cwd={config.cwd}
+          slashCommands={slashCommands}
+          lastBangCommand={lastBangCommand}
+          insertText={insertText}
+          onInsertConsumed={() => setInsertText(null)}
           onSubmit={onSubmitLine}
+          onMenuHeightChange={setAutocompleteRows}
         />
       )}
       {pendingAsk && <PromptModal pendingAsk={pendingAsk} onSubmit={onPromptSubmit} />}

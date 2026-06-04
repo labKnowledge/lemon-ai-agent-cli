@@ -10,7 +10,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
   program
     .name('lemon')
-    .description('CLI agent powered by lemon-ai-agent and Google Gemini')
+    .description('Lemon Code — CLI agent powered by lemon-ai-agent and Google Gemini')
     .option('-p, --print <prompt>', 'Run a one-shot prompt and print the result')
     .option('-f, --file <path>', 'Read prompt from a file (use with -p/--print)')
     .option('--plan-yolo', 'One-shot: plan and auto-select best path (requires -p)')

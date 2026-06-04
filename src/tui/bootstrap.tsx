@@ -3,8 +3,8 @@ import { createRoot } from '@opentui/react';
 import { App } from './App.tsx';
 import type { TuiStartOptions } from './types.ts';
 
-/** Footer rows: status (3) + input (3) + padding (2) + margin */
-export const TUI_FOOTER_HEIGHT = 10;
+/** Footer rows: optional status (1) + input (3) + padding (2) + margin */
+export const TUI_FOOTER_HEIGHT = 8;
 
 export async function startTui(options: TuiStartOptions): Promise<void> {
   const renderer = await createCliRenderer({

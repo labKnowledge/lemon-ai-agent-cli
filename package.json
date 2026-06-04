@@ -1,7 +1,7 @@
 {
   "name": "lemon-ai-agent-cli",
   "version": "0.2.0",
-  "description": "CLI agent powered by lemon-ai-agent and Google Gemini",
+  "description": "Lemon Code — CLI agent powered by lemon-ai-agent and Google Gemini",
   "type": "module",
   "bin": {
     "lemon": "./bin/lemon.ts"

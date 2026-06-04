@@ -8,7 +8,7 @@ export function getInteractionMode(session: SessionData): InteractionMode {
 }
 
 export function buildPrompt(mode: InteractionMode): string {
-  return `lemon [${modeLabel(mode)}]> `;
+  return `Lemon Code [${modeLabel(mode)}]> `;
 }
 
 export function applyModeToSession(session: SessionData, mode: InteractionMode): SessionData {

@@ -19,15 +19,28 @@ export interface TranscriptChunk {
   streaming?: boolean;
 }
 
+import type { ActivityState } from './activity.ts';
+
 export interface AskOptions {
   placeholder?: string;
 }
+
+export type { ActivityPhase, ActivityState } from './activity.ts';
+export {
+  thinkingActivity,
+  toolActivity,
+  planActivity,
+  scanActivity,
+  delegateActivity,
+  approvalActivity,
+} from './activity.ts';
 
 export interface UiBridge {
   append(chunk: Omit<TranscriptChunk, 'id'> & { id?: string }): void;
   appendToken(text: string): void;
   finalizeAssistant(text: string): void;
   ask(prompt: string, options?: AskOptions): Promise<string>;
+  setActivity?(state: ActivityState | null): void;
 }
 
 let activeBridge: UiBridge | null = null;
@@ -57,6 +70,10 @@ export function bridgeAsk(prompt: string, options?: AskOptions): Promise<string>
     throw new Error('UiBridge not initialized');
   }
   return activeBridge.ask(prompt, options);
+}
+
+export function bridgeSetActivity(state: ActivityState | null): void {
+  activeBridge?.setActivity?.(state);
 }
 
 let chunkCounter = 0;

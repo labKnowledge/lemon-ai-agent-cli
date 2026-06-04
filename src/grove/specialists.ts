@@ -18,6 +18,7 @@ function agentOptions(
     systemMessage,
     maxIterations,
     humanGate: config.approval !== 'yolo' ? createShellGate(config.approval) : undefined,
+    streamToolEvents: true,
   };
 }
 

@@ -2,7 +2,8 @@ import type { LemonGrove } from 'lemon-ai-agent';
 import type { PlanDocument, PlanStep } from './schema.js';
 import { SPECIALIST_AGENT_MAP } from './schema.js';
 import { getStreamHandlers, streamAgentResponse } from '../ui/stream.js';
-import { bridgeAppend } from '../ui/bridge.js';
+import { delegateActivity } from '../ui/activity.js';
+import { bridgeAppend, bridgeSetActivity } from '../ui/bridge.js';
 
 interface StepResult {
   stepId: string;
@@ -27,6 +28,9 @@ export async function executePlan(grove: LemonGrove, plan: PlanDocument): Promis
       text: `[wave ${w + 1}/${waves.length}] ${formatWaveLabel(wave)}`,
       fg: '#bb9af7',
     });
+    bridgeSetActivity(
+      delegateActivity(`Executing wave ${w + 1}/${waves.length} — ${formatWaveLabel(wave)}`),
+    );
 
     const waveResults = await runWave(grove, wave, plan, results, completed, handlers);
     results.push(...waveResults);

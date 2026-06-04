@@ -1,6 +1,8 @@
-# Lemon AI Agent CLI
+# Lemon Code
 
-A terminal UI agent powered by [lemon-ai-agent](https://www.npmjs.com/package/lemon-ai-agent), Google Gemini, [Bun](https://bun.sh), and [OpenTUI](https://opentui.com/) React. Read/write files, run shell commands, analyze websites with PageSpeed Insights, plan multi-step work, and orchestrate specialist agents.
+A terminal UI coding agent powered by [lemon-ai-agent](https://www.npmjs.com/package/lemon-ai-agent), Google Gemini, [Bun](https://bun.sh), and [OpenTUI](https://opentui.com/) React. Read/write files, run shell commands, analyze websites with PageSpeed Insights, plan multi-step work, and orchestrate specialist agents.
+
+The interactive TUI opens with a **Lemon Code** session header at the top of the transcript (cwd, model, mode, and keybindings). The footer stays minimal: input and ephemeral busy/status lines.
 
 ## Setup
 
@@ -57,7 +59,18 @@ bun run lemon -- --cwd ./my-app --approval smart
 
 **Shift+Tab** cycles: `direct` → `plan` → `plan-yolo` → `plan-verbose` → `direct`.
 
-Mode is shown in the input bar title: `lemon [plan-yolo]>`.
+Mode is shown in the input bar title: `Lemon Code [plan-yolo]>`.
+
+### Input autocomplete
+
+| Trigger | Behavior |
+| ------- | -------- |
+| `/` | Lists built-in slash commands and custom commands from `.lemon/commands/*.md` |
+| `@` | Fuzzy file search in the workspace (respects ignore rules); file content is included when you send the message |
+| `!` | Shell command hints (last command + common examples) |
+| `ctrl+p` | Command palette — filter and run any command or quick action |
+
+Use **Up/Down** and **Tab** or **Enter** to apply a suggestion. **Esc** closes the menu.
 
 ### REPL commands
 

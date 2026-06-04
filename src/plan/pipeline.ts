@@ -7,6 +7,8 @@ import { createPlanner, generatePlan } from './planner.js';
 import { runPlanGate, collectVerboseContext } from './gate.js';
 import { executePlan } from './executor.js';
 import type { PlanDocument } from './schema.js';
+import { planActivity, thinkingActivity } from '../ui/activity.js';
+import { bridgeSetActivity } from '../ui/bridge.js';
 import { streamAgentResponse, getStreamHandlers } from '../ui/stream.js';
 
 export interface PlanPipelineResult {
@@ -22,12 +24,17 @@ export async function runPlanPipeline(
   config: CliConfig,
 ): Promise<PlanPipelineResult> {
   const planner = await createPlanner(config);
+
+  bridgeSetActivity(planActivity());
   let plan = await generatePlan(planner, userInput);
+  bridgeSetActivity(thinkingActivity());
 
   if (mode === 'plan-verbose') {
     const verboseContext = await collectVerboseContext(plan);
     if (verboseContext) {
+      bridgeSetActivity(planActivity('Refining plan...'));
       plan = await generatePlan(planner, userInput, verboseContext);
+      bridgeSetActivity(thinkingActivity());
     }
   }
 
@@ -40,7 +47,9 @@ export async function runPlanPipeline(
 
     if (gateResult.action === 'edit') {
       userInput = gateResult.revision;
+      bridgeSetActivity(planActivity('Rebuilding plan...'));
       plan = await generatePlan(planner, userInput);
+      bridgeSetActivity(thinkingActivity());
       continue;
     }
 

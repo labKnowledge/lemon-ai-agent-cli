@@ -10,7 +10,6 @@ import { executeShell, printShellResult } from '../../tools/shell.ts';
 import {
   appendTurn,
   buildInputWithContext,
-  loadSession,
   saveSession,
   saveCodebaseContext,
   type SessionData,
@@ -20,6 +19,10 @@ import {
   applyPlanToSession,
   getInteractionMode,
 } from '../../session/mode-state.ts';
+import { invalidateFileIndex } from '../autocomplete/file-search.ts';
+import { findCustomCommand, type SlashCommand } from '../commands/registry.ts';
+import { expandAtMentions } from '../input/expand-mentions.ts';
+import { scanActivity } from '../../ui/activity.ts';
 import { createChunk, useUiBridgeContext } from '../context/UiBridgeContext.tsx';
 
 export function useReplController(
@@ -29,8 +32,9 @@ export function useReplController(
   interactionMode: InteractionMode,
   setInteractionMode: (mode: InteractionMode) => void,
   sessionRef: MutableRefObject<SessionData>,
+  slashCommands: SlashCommand[],
 ) {
-  const { append, setProcessing } = useUiBridgeContext();
+  const { append, setProcessing, setActivity } = useUiBridgeContext();
   const lastBangCommand = useRef<string | null>(null);
 
   const appendUser = useCallback(
@@ -62,6 +66,24 @@ export function useReplController(
     [append],
   );
 
+  const runScan = useCallback(async () => {
+    appendSystem('Scanning codebase...', '#7dcfff');
+    setActivity(scanActivity());
+    setProcessing(true);
+    try {
+      const result = await scanCodebase(config.cwd, { depth: 2 });
+      sessionRef.current = await saveCodebaseContext(
+        config.sessionId,
+        result.summary,
+        result.scannedAt,
+      );
+      invalidateFileIndex();
+      appendSystem(result.summary);
+    } finally {
+      setProcessing(false);
+    }
+  }, [appendSystem, config, sessionRef, setActivity, setProcessing]);
+
   const handleLine = useCallback(
     async (line: string) => {
       const trimmed = line.trim();
@@ -72,14 +94,7 @@ export function useReplController(
       }
 
       if (trimmed === '/scan') {
-        appendSystem('Scanning codebase...', '#7dcfff');
-        const result = await scanCodebase(config.cwd, { depth: 2 });
-        sessionRef.current = await saveCodebaseContext(
-          config.sessionId,
-          result.summary,
-          result.scannedAt,
-        );
-        appendSystem(result.summary);
+        await runScan();
         return;
       }
 
@@ -95,6 +110,44 @@ export function useReplController(
           approval: config.approval,
         });
         printShellResult(result);
+        return;
+      }
+
+      const custom = findCustomCommand(slashCommands, trimmed);
+      if (custom) {
+        const spaceIdx = trimmed.indexOf(' ');
+        const args = spaceIdx === -1 ? '' : trimmed.slice(spaceIdx + 1).trim();
+        const userInput = args ? `${custom.prompt}\n\n${args}` : custom.prompt;
+        const modeForTurn = custom.mode ?? interactionMode;
+
+        if (custom.mode) {
+          setInteractionMode(custom.mode);
+          sessionRef.current = applyModeToSession(sessionRef.current, custom.mode);
+          await saveSession(sessionRef.current);
+        }
+
+        appendUser(trimmed);
+        setProcessing(true);
+        try {
+          const expanded = await expandAtMentions(config.cwd, userInput);
+          const agentInput = buildInputWithContext(
+            sessionRef.current.messages,
+            expanded,
+            sessionRef.current.codebaseContext,
+          );
+          const result = await routeInput(modeForTurn, agentInput, agent, grove, config);
+          if (result.plan) {
+            sessionRef.current = applyPlanToSession(sessionRef.current, result.plan);
+            await saveSession(sessionRef.current);
+          }
+          if (!result.cancelled && result.output) {
+            if (isPlanMode(modeForTurn)) appendPlanSummary(result.output);
+            const updated = await appendTurn(config.sessionId, trimmed, result.output);
+            sessionRef.current.messages = updated.messages;
+          }
+        } finally {
+          setProcessing(false);
+        }
         return;
       }
 
@@ -122,9 +175,10 @@ export function useReplController(
       setProcessing(true);
 
       try {
+        const expanded = await expandAtMentions(config.cwd, userInput);
         const agentInput = buildInputWithContext(
           sessionRef.current.messages,
-          userInput,
+          expanded,
           sessionRef.current.codebaseContext,
         );
 
@@ -152,12 +206,15 @@ export function useReplController(
       config,
       interactionMode,
       sessionRef,
+      slashCommands,
       append,
       appendUser,
       appendSystem,
       appendPlanSummary,
       setInteractionMode,
       setProcessing,
+      setActivity,
+      runScan,
     ],
   );
 
@@ -167,7 +224,12 @@ export function useReplController(
       setProcessing(true);
       try {
         const session = sessionRef.current;
-        const agentInput = buildInputWithContext(session.messages, prompt, session.codebaseContext);
+        const expanded = await expandAtMentions(config.cwd, prompt);
+        const agentInput = buildInputWithContext(
+          session.messages,
+          expanded,
+          session.codebaseContext,
+        );
         const mode = planYolo ? 'plan-yolo' : getInteractionMode(session);
 
         if (planYolo) {
@@ -192,7 +254,13 @@ export function useReplController(
     [agent, grove, config, sessionRef, append, appendUser, appendPlanSummary, setProcessing],
   );
 
-  return { handleLine, runOneShot, appendSystem };
+  return {
+    handleLine,
+    runOneShot,
+    appendSystem,
+    runScan,
+    getLastBangCommand: () => lastBangCommand.current,
+  };
 }
 
 function resolveBangCommand(line: string, lastCommand: string | null): string | null {

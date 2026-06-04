@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import type { TranscriptChunk, UiBridge } from '../../ui/bridge.ts';
+import type { ActivityState, TranscriptChunk, UiBridge } from '../../ui/bridge.ts';
 import { nextChunkId, setUiBridge } from '../../ui/bridge.ts';
 import type { PendingAsk } from '../types.ts';
 
@@ -12,6 +12,8 @@ export interface UiBridgeContextValue {
   setPendingAsk: (ask: PendingAsk | null) => void;
   processing: boolean;
   setProcessing: (v: boolean) => void;
+  activity: ActivityState | null;
+  setActivity: (state: ActivityState | null) => void;
 }
 
 const UiBridgeCtx = createContext<UiBridgeContextValue | null>(null);
@@ -49,8 +51,17 @@ export function UiBridgeProvider({
           });
         });
       },
+      setActivity(state) {
+        value.setActivity(state);
+      },
     }),
-    [value.append, value.appendToken, value.finalizeAssistant, value.setPendingAsk],
+    [
+      value.append,
+      value.appendToken,
+      value.finalizeAssistant,
+      value.setPendingAsk,
+      value.setActivity,
+    ],
   );
 
   useEffect(() => {
