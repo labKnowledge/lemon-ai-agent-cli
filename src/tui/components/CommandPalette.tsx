@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboard } from '@opentui/react';
-import {
-  filterPaletteActions,
-  type PaletteAction,
-} from '../commands/registry.ts';
+import { filterPaletteActions, type PaletteAction } from '../commands/registry.ts';
 import { LEMON_TOKENS } from '../theme/tokens.ts';
 
 export const PALETTE_VISIBLE_ROWS = 12;

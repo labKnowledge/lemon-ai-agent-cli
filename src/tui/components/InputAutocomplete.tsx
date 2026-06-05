@@ -170,10 +170,7 @@ export function InputAutocomplete({
 
   const menuRows = useMemo(() => {
     if (!trigger) return 0;
-    const visibleRows = Math.min(
-      AUTOCOMPLETE_MAX_ROWS,
-      Math.max(displayItems.length, 1),
-    );
+    const visibleRows = Math.min(AUTOCOMPLETE_MAX_ROWS, Math.max(displayItems.length, 1));
     return visibleRows + 2;
   }, [trigger, displayItems.length]);
 

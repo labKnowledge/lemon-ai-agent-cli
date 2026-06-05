@@ -54,10 +54,7 @@ export function AutocompleteMenu({
             content={`${item.display.padEnd(22)}`}
             style={{ fg: index === selectedIndex ? LEMON_TOKENS.accent : LEMON_TOKENS.brand }}
           />
-          <text
-            content={item.description}
-            style={{ fg: LEMON_TOKENS.muted }}
-          />
+          <text content={item.description} style={{ fg: LEMON_TOKENS.muted }} />
         </box>
       ))}
     </box>

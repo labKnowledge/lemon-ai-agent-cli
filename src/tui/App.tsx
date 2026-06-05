@@ -22,7 +22,10 @@ import { PromptModal } from './components/PromptModal.tsx';
 import { useReplController } from './hooks/useReplController.ts';
 import { buildPaletteActions, loadSlashCommands, type SlashCommand } from './commands/registry.ts';
 import { TranscriptScrollback } from './scrollback/transcript-scrollback.ts';
+import { TranscriptScrollController } from './scrollback/scroll-controller.ts';
 import { TUI_FOOTER_HEIGHT } from './bootstrap.tsx';
+import { registry } from '../runtime/process-registry.ts';
+import { copyTranscript, formatCopyMessage } from './actions/copy-transcript.ts';
 
 const TOKEN_FLUSH_MS = 50;
 
@@ -35,7 +38,11 @@ export function App({
   planYoloOneShot,
 }: TuiStartOptions) {
   const renderer = useRenderer();
-  const scrollback = useMemo(() => new TranscriptScrollback(renderer), [renderer]);
+  const scrollController = useMemo(() => new TranscriptScrollController(renderer), [renderer]);
+  const scrollback = useMemo(
+    () => new TranscriptScrollback(renderer, scrollController),
+    [renderer, scrollController],
+  );
   const sessionRef = useRef<SessionData | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
@@ -75,7 +82,7 @@ export function App({
       });
       const welcome = createChunk({
         type: 'system',
-        text: 'Ready. Type a message, /command, or !shell command.',
+        text: 'Ready. PgUp/PgDn scroll · End follow live · Ctrl+Shift+C copy · /commands · !shell',
         fg: '#565f89',
       });
       setChunks([welcome]);
@@ -210,7 +217,6 @@ export function App({
     ],
   );
 
-
   if (!sessionLoaded || !sessionRef.current) {
     return (
       <box
@@ -236,6 +242,7 @@ export function App({
         activity={activity}
         renderer={renderer}
         scrollback={scrollback}
+        scrollController={scrollController}
         initialPrompt={initialPrompt}
         autoRun={autoRun}
         planYoloOneShot={planYoloOneShot}
@@ -258,6 +265,7 @@ function AppInner({
   activity,
   renderer,
   scrollback,
+  scrollController,
   initialPrompt,
   autoRun,
   planYoloOneShot,
@@ -275,12 +283,13 @@ function AppInner({
   activity: ActivityState | null;
   renderer: ReturnType<typeof useRenderer>;
   scrollback: TranscriptScrollback;
+  scrollController: TranscriptScrollController;
   initialPrompt?: string;
   autoRun?: boolean;
   planYoloOneShot?: boolean;
   oneShotRan: MutableRefObject<boolean>;
 }) {
-  const { chunks } = useUiBridgeContext();
+  const { chunks, append } = useUiBridgeContext();
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [autocompleteRows, setAutocompleteRows] = useState(0);
@@ -292,6 +301,12 @@ function AppInner({
     void loadSlashCommands(config.cwd).then(setSlashCommands);
   }, [config.cwd]);
 
+  const handleCopy = useCallback(async () => {
+    const selection = renderer.hasSelection ? renderer.getSelection()?.getSelectedText() : null;
+    const result = await copyTranscript(renderer, chunks, config.sessionId, selection);
+    append(createChunk({ type: 'system', text: formatCopyMessage(result), fg: '#9ece6a' }));
+  }, [renderer, chunks, config.sessionId, append]);
+
   const { handleLine, runOneShot, appendSystem, runScan, getLastBangCommand } = useReplController(
     agent,
     grove,
@@ -300,6 +315,7 @@ function AppInner({
     setInteractionMode,
     sessionRef,
     slashCommands,
+    handleCopy,
   );
 
   const lastBangCommand = useMemo(() => {
@@ -312,6 +328,7 @@ function AppInner({
   });
 
   const exitApp = useCallback(() => {
+    registry.killAll();
     scrollback.destroy();
     renderer.destroy();
     process.exit(0);
@@ -348,16 +365,8 @@ function AppInner({
 
   useEffect(() => {
     const extra = paletteOpen ? paletteRows : autocompleteRows;
-    renderer.footerHeight =
-      TUI_FOOTER_HEIGHT + (pendingAsk ? 4 : 0) + extra + activityExtraRows;
-  }, [
-    renderer,
-    pendingAsk,
-    paletteOpen,
-    paletteRows,
-    autocompleteRows,
-    activityExtraRows,
-  ]);
+    renderer.footerHeight = TUI_FOOTER_HEIGHT + (pendingAsk ? 4 : 0) + extra + activityExtraRows;
+  }, [renderer, pendingAsk, paletteOpen, paletteRows, autocompleteRows, activityExtraRows]);
 
   useEffect(() => {
     if (!autoRun || !initialPrompt || oneShotRan.current) return;
@@ -390,6 +399,36 @@ function AppInner({
 
     if (isShiftTab && !processing) {
       cycleInteractionMode();
+      return;
+    }
+
+    if (key.ctrl && key.shift && (key.name === 'c' || key.name === 'C')) {
+      void handleCopy();
+      return;
+    }
+
+    if (key.name === 'pageup') {
+      scrollController.scrollByPage(-1);
+      return;
+    }
+    if (key.name === 'pagedown') {
+      scrollController.scrollByPage(1);
+      return;
+    }
+    if (key.option && key.name === 'up') {
+      scrollController.scrollByLines(-3);
+      return;
+    }
+    if (key.option && key.name === 'down') {
+      scrollController.scrollByLines(3);
+      return;
+    }
+    if (key.name === 'home') {
+      scrollController.jumpToTop();
+      return;
+    }
+    if (key.name === 'end' || (key.ctrl && key.name === 'end')) {
+      scrollController.jumpToBottom();
       return;
     }
 
@@ -427,11 +466,7 @@ function AppInner({
         justifyContent: 'flex-end',
       }}
     >
-      <StatusBar
-        processing={processing}
-        activity={activity}
-        pendingAsk={Boolean(pendingAsk)}
-      />
+      <StatusBar processing={processing} activity={activity} pendingAsk={Boolean(pendingAsk)} />
       {paletteOpen && (
         <CommandPalette
           actions={paletteActions}

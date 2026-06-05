@@ -2,25 +2,44 @@ import type { HumanGate, PendingAction } from 'lemon-ai-agent';
 import type { ApprovalMode } from './modes.js';
 import { requiresApproval } from './modes.js';
 import { askUser } from '../session/prompt.js';
+import { registry } from '../runtime/process-registry.js';
 
 export function createShellGate(mode: ApprovalMode): HumanGate {
   return async (action: PendingAction) => {
-    if (action.tool !== 'run_command') {
+    if (action.tool === 'run_command') {
+      const shellInput = action.input as { command?: string; cwd?: string };
+      const command = shellInput?.command ?? '';
+      const cwd = shellInput?.cwd ?? process.cwd();
+
+      if (!requiresApproval(mode, command)) {
+        return { approved: true };
+      }
+
+      const approved = await promptApproval(command, cwd);
+      if (!approved) {
+        return { approved: false, reason: 'User denied command execution' };
+      }
       return { approved: true };
     }
 
-    const shellInput = action.input as { command?: string; cwd?: string };
-    const command = shellInput?.command ?? '';
-    const cwd = shellInput?.cwd ?? process.cwd();
+    if (action.tool === 'kill_command') {
+      if (mode === 'yolo') {
+        return { approved: true };
+      }
 
-    if (!requiresApproval(mode, command)) {
+      const killInput = action.input as { shell_id?: string };
+      const shellId = killInput?.shell_id ?? 'unknown';
+      const shell = registry.get(shellId);
+      const approved = await promptApproval(
+        `kill background shell ${shellId}`,
+        shell?.cwd ?? process.cwd(),
+      );
+      if (!approved) {
+        return { approved: false, reason: 'User denied killing background shell' };
+      }
       return { approved: true };
     }
 
-    const approved = await promptApproval(command, cwd);
-    if (!approved) {
-      return { approved: false, reason: 'User denied command execution' };
-    }
     return { approved: true };
   };
 }

@@ -33,6 +33,7 @@ export function useReplController(
   setInteractionMode: (mode: InteractionMode) => void,
   sessionRef: MutableRefObject<SessionData>,
   slashCommands: SlashCommand[],
+  onCopy?: () => Promise<void>,
 ) {
   const { append, setProcessing, setActivity } = useUiBridgeContext();
   const lastBangCommand = useRef<string | null>(null);
@@ -95,6 +96,11 @@ export function useReplController(
 
       if (trimmed === '/scan') {
         await runScan();
+        return;
+      }
+
+      if (trimmed === '/copy') {
+        await onCopy?.();
         return;
       }
 
@@ -215,6 +221,7 @@ export function useReplController(
       setProcessing,
       setActivity,
       runScan,
+      onCopy,
     ],
   );
 

@@ -108,9 +108,7 @@ export function createTuiStreamHandlers(bridge?: UiBridge | null): StreamHandler
       setActivity(thinkingActivity());
     },
     onDelegationSummary: (trace) => {
-      const invoked = trace.toolsInvoked?.length
-        ? trace.toolsInvoked.join(', ')
-        : undefined;
+      const invoked = trace.toolsInvoked?.length ? trace.toolsInvoked.join(', ') : undefined;
       setActivity(
         delegateActivity(
           invoked ? `Coordinating specialists (${invoked})` : 'Coordinating specialists',

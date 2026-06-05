@@ -32,10 +32,7 @@ export function InputBar({
       : `Lemon Code [${modeLabel(mode)}] (busy)`;
     return (
       <box title={busyTitle} style={{ border: true, height: 3, width: '100%' }}>
-        <text
-          content={activityLabel ?? 'Processing...'}
-          style={{ fg: '#565f89' }}
-        />
+        <text content={activityLabel ?? 'Processing...'} style={{ fg: '#565f89' }} />
       </box>
     );
   }
@@ -49,7 +46,7 @@ export function InputBar({
         lastBangCommand={lastBangCommand}
         insertText={insertText}
         onInsertConsumed={onInsertConsumed}
-        placeholder="Message · /commands · @file · !shell · ctrl+p palette"
+        placeholder="Message · PgUp/Dn scroll · Ctrl+Shift+C copy · /commands · ctrl+p"
         onSubmit={onSubmit}
         onMenuHeightChange={onMenuHeightChange}
       />

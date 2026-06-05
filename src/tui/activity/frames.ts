@@ -17,10 +17,7 @@ export function tickBar(frame: number, width = 16): string {
   return bar;
 }
 
-export function frameForPhase(
-  phase: string,
-  frameIndex: number,
-): string {
+export function frameForPhase(phase: string, frameIndex: number): string {
   switch (phase) {
     case 'tool':
       return TOOL_FRAMES[frameIndex % TOOL_FRAMES.length]!;

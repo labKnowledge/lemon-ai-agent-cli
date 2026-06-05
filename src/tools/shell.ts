@@ -5,9 +5,15 @@ import { requiresApproval } from '../approval/modes.js';
 import { promptApproval } from '../approval/gate.js';
 import { resolveWithinCwd } from './path-utils.js';
 import { bridgeAppend } from '../ui/bridge.js';
+import {
+  formatPollResult,
+  formatStartResult,
+  MAX_OUTPUT,
+  registry,
+} from '../runtime/process-registry.js';
 
-const MAX_OUTPUT = 32_768;
-const DEFAULT_TIMEOUT = 120_000;
+export { MAX_OUTPUT };
+export const DEFAULT_TIMEOUT = 120_000;
 
 export interface ShellResult {
   stdout: string;
@@ -24,6 +30,14 @@ export interface ShellRunnerOptions {
 function truncate(text: string): string {
   if (text.length <= MAX_OUTPUT) return text;
   return `${text.slice(0, MAX_OUTPUT)}\n\n... [truncated ${text.length - MAX_OUTPUT} chars]`;
+}
+
+export function spawnShellChild(command: string, cwd: string) {
+  return spawn(command, {
+    cwd,
+    shell: true,
+    env: process.env,
+  });
 }
 
 export async function executeShell(
@@ -57,11 +71,7 @@ export async function executeShell(
 
 function runShellProcess(command: string, cwd: string, timeoutMs: number): Promise<ShellResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, {
-      cwd,
-      shell: true,
-      env: process.env,
-    });
+    const child = spawnShellChild(command, cwd);
 
     let stdout = '';
     let stderr = '';
@@ -123,18 +133,49 @@ export function createShellTool(workspaceCwd: string, approval: ApprovalMode) {
   return lemonTool({
     name: 'run_command',
     description:
-      'Run a shell command in the workspace. Use for tests, builds, git, package managers, and other CLI tasks.',
+      'Run a shell command in the workspace. Use block_until_ms: 0 to start a background process without blocking — each call creates a NEW independent shell with its own shell_id; prior shells keep running in parallel with no limit. Shells stay accessible until kill_command or CLI exit. Use list_commands to see all shells, poll_command for output, kill_command to stop one.',
     schema: z.object({
       command: z.string().describe('Shell command to execute'),
       cwd: z
         .string()
         .optional()
         .describe('Subdirectory within workspace (defaults to workspace root)'),
-      timeout_ms: z.number().optional().describe('Timeout in milliseconds (default 120000)'),
+      timeout_ms: z
+        .number()
+        .optional()
+        .describe('Foreground timeout in milliseconds (default 120000)'),
+      block_until_ms: z
+        .number()
+        .optional()
+        .describe(
+          'How long to wait before returning. Omit to wait for completion. 0 starts in background immediately. Positive values return a snapshot after waiting.',
+        ),
+      pattern: z
+        .string()
+        .optional()
+        .describe('When blocking, stop early if combined output matches this regex'),
     }),
     irreversible: approval !== 'yolo',
-    run: async ({ command, cwd, timeout_ms }) => {
+    run: async ({ command, cwd, timeout_ms, block_until_ms, pattern }) => {
       const runCwd = cwd ? resolveWithinCwd(workspaceCwd, cwd) : workspaceCwd;
+
+      if (block_until_ms !== undefined) {
+        const denied = await ensureShellApproval(command, runCwd, approval, approval !== 'yolo');
+        if (denied) return denied;
+
+        const started = registry.startBackground(command, runCwd);
+
+        if (block_until_ms === 0) {
+          return formatStartResult(started);
+        }
+
+        const polled = await registry.poll(started.id, {
+          blockUntilMs: block_until_ms,
+          pattern,
+        });
+        return polled ? formatPollResult(polled) : `Unknown shell_id: ${started.id}`;
+      }
+
       const result = await executeShell(
         command,
         runCwd,
@@ -144,6 +185,20 @@ export function createShellTool(workspaceCwd: string, approval: ApprovalMode) {
       return formatShellResult(result);
     },
   });
+}
+
+async function ensureShellApproval(
+  command: string,
+  cwd: string,
+  approval: ApprovalMode,
+  skipApproval: boolean,
+): Promise<string | null> {
+  if (skipApproval || !requiresApproval(approval, command)) {
+    return null;
+  }
+  const approved = await promptApproval(command, cwd);
+  if (!approved) return 'Command execution denied by user.';
+  return null;
 }
 
 export function printShellResult(result: ShellResult): void {

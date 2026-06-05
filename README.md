@@ -63,12 +63,12 @@ Mode is shown in the input bar title: `Lemon Code [plan-yolo]>`.
 
 ### Input autocomplete
 
-| Trigger | Behavior |
-| ------- | -------- |
-| `/` | Lists built-in slash commands and custom commands from `.lemon/commands/*.md` |
-| `@` | Fuzzy file search in the workspace (respects ignore rules); file content is included when you send the message |
-| `!` | Shell command hints (last command + common examples) |
-| `ctrl+p` | Command palette — filter and run any command or quick action |
+| Trigger  | Behavior                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| `/`      | Lists built-in slash commands and custom commands from `.lemon/commands/*.md`                                  |
+| `@`      | Fuzzy file search in the workspace (respects ignore rules); file content is included when you send the message |
+| `!`      | Shell command hints (last command + common examples)                                                           |
+| `ctrl+p` | Command palette — filter and run any command or quick action                                                   |
 
 Use **Up/Down** and **Tab** or **Enter** to apply a suggestion. **Esc** closes the menu.
 

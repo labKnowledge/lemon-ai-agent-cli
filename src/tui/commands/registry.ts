@@ -1,8 +1,5 @@
 import type { InteractionMode } from '../../plan/modes.ts';
-import {
-  loadCustomCommands,
-  type CustomCommand,
-} from '../../project/custom-commands.ts';
+import { loadCustomCommands, type CustomCommand } from '../../project/custom-commands.ts';
 
 export const AUTOCOMPLETE_MAX_ROWS = 8;
 
@@ -28,6 +25,7 @@ export interface AutocompleteItem {
 export type InputTrigger = '/' | '@' | '!';
 
 export const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
+  { name: '/copy', description: 'Copy transcript to clipboard', category: 'session' },
   { name: '/exit', description: 'Exit Lemon Code', category: 'session' },
   { name: '/quit', description: 'Exit Lemon Code', category: 'session' },
   { name: '/scan', description: 'Scan codebase and save project context', category: 'workspace' },
@@ -36,7 +34,11 @@ export const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
   { name: '/py', description: 'Plan-yolo — auto-select best path', category: 'mode' },
   { name: '/plan-yolo', description: 'Plan-yolo — auto-select best path', category: 'mode' },
   { name: '/pv', description: 'Plan-verbose — detailed Q&A then approval', category: 'mode' },
-  { name: '/plan-verbose', description: 'Plan-verbose — detailed Q&A then approval', category: 'mode' },
+  {
+    name: '/plan-verbose',
+    description: 'Plan-verbose — detailed Q&A then approval',
+    category: 'mode',
+  },
   { name: '/d', description: 'Direct mode — execute immediately', category: 'mode' },
   { name: '/direct', description: 'Direct mode — execute immediately', category: 'mode' },
 ];

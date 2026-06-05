@@ -1,10 +1,4 @@
-export type ActivityPhase =
-  | 'thinking'
-  | 'tool'
-  | 'plan'
-  | 'scan'
-  | 'delegate'
-  | 'approval';
+export type ActivityPhase = 'thinking' | 'tool' | 'plan' | 'scan' | 'delegate' | 'approval';
 
 export interface ActivityState {
   phase: ActivityPhase;
@@ -19,6 +13,9 @@ const TOOL_LABELS: Record<string, string> = {
   list_directory: 'Listing directory',
   glob_files: 'Searching files',
   run_command: 'Running shell',
+  poll_command: 'Polling shell',
+  kill_command: 'Stopping shell',
+  list_commands: 'Listing shells',
   scan_codebase: 'Scanning codebase',
   pagespeed_insights: 'Running PageSpeed',
 };

@@ -52,9 +52,7 @@ export function ActivityIndicator({
       {showBar && (
         <text
           content={
-            activity.detail
-              ? `${tickBar(frameIndex)}  ${activity.detail}`
-              : tickBar(frameIndex)
+            activity.detail ? `${tickBar(frameIndex)}  ${activity.detail}` : tickBar(frameIndex)
           }
           style={{ fg: LEMON_TOKENS.muted }}
         />

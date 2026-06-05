@@ -13,6 +13,7 @@ export async function startTui(options: TuiStartOptions): Promise<void> {
     externalOutputMode: 'capture-stdout',
     consoleMode: 'disabled',
     exitOnCtrlC: false,
+    useMouse: true,
   });
 
   const root = createRoot(renderer);
