@@ -39,10 +39,7 @@ export function App({
 }: TuiStartOptions) {
   const renderer = useRenderer();
   const scrollController = useMemo(() => new TranscriptScrollController(renderer), [renderer]);
-  const scrollback = useMemo(
-    () => new TranscriptScrollback(renderer, scrollController),
-    [renderer, scrollController],
-  );
+  const scrollback = useMemo(() => new TranscriptScrollback(renderer), [renderer]);
   const sessionRef = useRef<SessionData | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
@@ -71,6 +68,11 @@ export function App({
   useEffect(() => () => scrollback.destroy(), [scrollback]);
 
   useEffect(() => {
+    scrollController.install();
+    return () => scrollController.destroy();
+  }, [scrollController]);
+
+  useEffect(() => {
     void loadSession(config.sessionId).then((session) => {
       sessionRef.current = session;
       const mode = getInteractionMode(session);
@@ -82,7 +84,7 @@ export function App({
       });
       const welcome = createChunk({
         type: 'system',
-        text: 'Ready. PgUp/PgDn scroll · End follow live · Ctrl+Shift+C copy · /commands · !shell',
+        text: 'Ready. Wheel/PgUp/Dn scroll · End follow live · Ctrl+Shift+C copy · /commands',
         fg: '#565f89',
       });
       setChunks([welcome]);
@@ -328,11 +330,12 @@ function AppInner({
   });
 
   const exitApp = useCallback(() => {
+    scrollController.destroy();
     registry.killAll();
     scrollback.destroy();
     renderer.destroy();
     process.exit(0);
-  }, [renderer, scrollback]);
+  }, [renderer, scrollback, scrollController]);
 
   const cycleInteractionMode = useCallback(() => {
     const next = cycleMode(interactionMode);

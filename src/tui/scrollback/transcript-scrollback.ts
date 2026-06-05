@@ -17,7 +17,6 @@ import {
   sessionHeaderFg,
   type SessionHeaderContext,
 } from './session-header.ts';
-import type { TranscriptScrollController } from './scroll-controller.ts';
 
 type ScrollbackChunk = Omit<TranscriptChunk, 'id'> & { id?: string };
 
@@ -32,10 +31,7 @@ export class TranscriptScrollback {
   private lastHeaderWidth = 0;
   private headerMounted = false;
 
-  constructor(
-    private readonly renderer: CliRenderer,
-    private readonly scroll?: TranscriptScrollController,
-  ) {
+  constructor(private readonly renderer: CliRenderer) {
     this.resizeListener = () => {
       if (this.surface && !this.surface.isDestroyed) {
         this.surface.render();
@@ -109,7 +105,6 @@ export class TranscriptScrollback {
     const fg = chunkFg(chunk.type, chunk.fg);
     const format = inferChunkFormat(chunk.type, chunk.format);
 
-    this.scroll?.preserveOffsetOnNextCommit();
     this.renderer.writeToScrollback((ctx) => {
       const root =
         format === 'markdown'
@@ -134,7 +129,6 @@ export class TranscriptScrollback {
         trailingNewline: true,
       };
     });
-    this.scroll?.onAfterCommit();
   }
 
   beginAssistantStream(chunkId: string, fg = '#c0caf5'): void {
@@ -193,9 +187,7 @@ export class TranscriptScrollback {
     this.surface.render();
 
     if (this.surface.height > 0) {
-      this.scroll?.preserveOffsetOnNextCommit();
       this.surface.commitRows(0, this.surface.height);
-      this.scroll?.onAfterCommit();
     }
 
     this.endStreamSurface();
@@ -207,7 +199,6 @@ export class TranscriptScrollback {
     const content = buildSessionHeaderText(this.headerContext);
     const fg = sessionHeaderFg();
 
-    this.scroll?.preserveOffsetOnNextCommit();
     this.renderer.writeToScrollback((ctx) => {
       const root = new TextRenderable(ctx.renderContext, {
         id: `session-header-${Date.now()}`,
@@ -223,7 +214,6 @@ export class TranscriptScrollback {
         trailingNewline: true,
       };
     });
-    this.scroll?.onAfterCommit();
   }
 
   private resetScrollbackSurface(): void {
@@ -245,9 +235,7 @@ export class TranscriptScrollback {
 
     const rowEnd = this.stableRowEnd(md, stableBlocks);
     if (rowEnd > 0) {
-      this.scroll?.preserveOffsetOnNextCommit();
       surface.commitRows(0, rowEnd);
-      this.scroll?.onAfterCommit();
       this.lastCommittedBlockCount = stableBlocks;
 
       const tail = this.unstableMarkdownTail(md);

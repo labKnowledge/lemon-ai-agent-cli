@@ -46,7 +46,7 @@ export function InputBar({
         lastBangCommand={lastBangCommand}
         insertText={insertText}
         onInsertConsumed={onInsertConsumed}
-        placeholder="Message · PgUp/Dn scroll · Ctrl+Shift+C copy · /commands · ctrl+p"
+        placeholder="Message · wheel/PgUp scroll · Ctrl+Shift+C copy · ctrl+p"
         onSubmit={onSubmit}
         onMenuHeightChange={onMenuHeightChange}
       />
